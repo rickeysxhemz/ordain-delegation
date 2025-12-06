@@ -29,7 +29,7 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1, 2, 3],
-            assignablePermissionIds: [4, 5, 6]
+            assignablePermissionIds: [4, 5, 6],
         );
 
         $this->assertTrue($scope->canManageUsers);
@@ -143,7 +143,7 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: false,
             maxManageableUsers: 10,
             assignableRoleIds: [1],
-            assignablePermissionIds: [2]
+            assignablePermissionIds: [2],
         );
 
         $modified = $original->withUserManagement(true);
@@ -162,7 +162,7 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1],
-            assignablePermissionIds: [2]
+            assignablePermissionIds: [2],
         );
 
         $modified = $original->withMaxUsers(20);
@@ -199,7 +199,7 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 15,
             assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4]
+            assignablePermissionIds: [3, 4],
         );
 
         $array = $scope->toArray();
@@ -248,14 +248,14 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4]
+            assignablePermissionIds: [3, 4],
         );
 
         $scope2 = new DelegationScope(
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4]
+            assignablePermissionIds: [3, 4],
         );
 
         $this->assertTrue($scope1->equals($scope2));
@@ -279,7 +279,7 @@ final class DelegationScopeTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4]
+            assignablePermissionIds: [3, 4],
         );
 
         $scope->withMaxUsers(20);

@@ -6,7 +6,7 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 
 describe('DelegationScope', function (): void {
     it('creates scope with no abilities by default', function (): void {
-        $scope = new DelegationScope();
+        $scope = new DelegationScope;
 
         expect($scope->canManageUsers)->toBeFalse()
             ->and($scope->maxManageableUsers)->toBeNull()

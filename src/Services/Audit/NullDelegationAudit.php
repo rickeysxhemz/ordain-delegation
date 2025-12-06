@@ -19,7 +19,7 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logRoleAssigned(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         // No-op
     }
@@ -27,7 +27,7 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logRoleRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         // No-op
     }
@@ -35,7 +35,7 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logPermissionGranted(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         // No-op
     }
@@ -43,7 +43,7 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logPermissionRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         // No-op
     }
@@ -51,7 +51,7 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logDelegationScopeChanged(
         DelegatableUserInterface $admin,
         DelegatableUserInterface $user,
-        array $changes
+        array $changes,
     ): void {
         // No-op
     }
@@ -59,14 +59,14 @@ final class NullDelegationAudit implements DelegationAuditInterface
     public function logUnauthorizedAttempt(
         DelegatableUserInterface $delegator,
         string $action,
-        array $context = []
+        array $context = [],
     ): void {
         // No-op
     }
 
     public function logUserCreated(
         DelegatableUserInterface $creator,
-        DelegatableUserInterface $createdUser
+        DelegatableUserInterface $createdUser,
     ): void {
         // No-op
     }

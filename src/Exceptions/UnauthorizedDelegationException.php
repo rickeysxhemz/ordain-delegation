@@ -15,7 +15,7 @@ class UnauthorizedDelegationException extends DelegationException
         string $message,
         protected ?DelegatableUserInterface $delegator = null,
         protected ?string $attemptedAction = null,
-        array $context = []
+        array $context = [],
     ) {
         parent::__construct($message, $context);
     }
@@ -25,13 +25,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function cannotAssignRole(
         DelegatableUserInterface $delegator,
-        string $roleName
+        string $roleName,
     ): self {
         return new self(
             message: "User is not authorized to assign role '{$roleName}'.",
             delegator: $delegator,
             attemptedAction: 'assign_role',
-            context: ['role' => $roleName]
+            context: ['role' => $roleName],
         );
     }
 
@@ -40,13 +40,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function cannotGrantPermission(
         DelegatableUserInterface $delegator,
-        string $permissionName
+        string $permissionName,
     ): self {
         return new self(
             message: "User is not authorized to grant permission '{$permissionName}'.",
             delegator: $delegator,
             attemptedAction: 'grant_permission',
-            context: ['permission' => $permissionName]
+            context: ['permission' => $permissionName],
         );
     }
 
@@ -55,13 +55,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function cannotRevokeRole(
         DelegatableUserInterface $delegator,
-        string $roleName
+        string $roleName,
     ): self {
         return new self(
             message: "User is not authorized to revoke role '{$roleName}'.",
             delegator: $delegator,
             attemptedAction: 'revoke_role',
-            context: ['role' => $roleName]
+            context: ['role' => $roleName],
         );
     }
 
@@ -70,13 +70,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function cannotRevokePermission(
         DelegatableUserInterface $delegator,
-        string $permissionName
+        string $permissionName,
     ): self {
         return new self(
             message: "User is not authorized to revoke permission '{$permissionName}'.",
             delegator: $delegator,
             attemptedAction: 'revoke_permission',
-            context: ['permission' => $permissionName]
+            context: ['permission' => $permissionName],
         );
     }
 
@@ -88,7 +88,7 @@ class UnauthorizedDelegationException extends DelegationException
         return new self(
             message: 'User is not authorized to create new users.',
             delegator: $delegator,
-            attemptedAction: 'create_user'
+            attemptedAction: 'create_user',
         );
     }
 
@@ -97,13 +97,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function userLimitReached(
         DelegatableUserInterface $delegator,
-        int $limit
+        int $limit,
     ): self {
         return new self(
             message: "User has reached their limit of {$limit} manageable users.",
             delegator: $delegator,
             attemptedAction: 'create_user',
-            context: ['limit' => $limit]
+            context: ['limit' => $limit],
         );
     }
 
@@ -112,13 +112,13 @@ class UnauthorizedDelegationException extends DelegationException
      */
     public static function cannotManageUser(
         DelegatableUserInterface $delegator,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): self {
         return new self(
             message: 'User is not authorized to manage this user.',
             delegator: $delegator,
             attemptedAction: 'manage_user',
-            context: ['target_id' => $target->getDelegatableIdentifier()]
+            context: ['target_id' => $target->getDelegatableIdentifier()],
         );
     }
 

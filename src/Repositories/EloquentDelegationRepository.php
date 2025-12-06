@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Repositories;
 
+use Illuminate\Support\Collection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
-use Illuminate\Support\Collection;
 
 /**
  * Eloquent implementation of the delegation repository.
@@ -90,7 +90,7 @@ final class EloquentDelegationRepository implements DelegationRepositoryInterfac
     public function updateDelegationSettings(
         DelegatableUserInterface $user,
         bool $canManageUsers,
-        ?int $maxManageableUsers
+        ?int $maxManageableUsers,
     ): void {
         /** @phpstan-ignore-next-line */
         $user->update([

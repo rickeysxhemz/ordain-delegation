@@ -48,7 +48,7 @@ final class DelegationServiceTest extends TestCase
             permissionRepository: $this->permissionRepository,
             audit: $this->audit,
             superAdminBypassEnabled: true,
-            superAdminIdentifier: 'super-admin'
+            superAdminIdentifier: 'super-admin',
         );
     }
 
@@ -534,7 +534,7 @@ final class DelegationServiceTest extends TestCase
             canManageUsers: true,
             maxManageableUsers: 10,
             assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4]
+            assignablePermissionIds: [3, 4],
         );
 
         $this->delegationRepository
@@ -679,7 +679,7 @@ final class DelegationServiceTest extends TestCase
             permissionRepository: $this->permissionRepository,
             audit: $this->audit,
             superAdminBypassEnabled: false,
-            superAdminIdentifier: 'super-admin'
+            superAdminIdentifier: 'super-admin',
         );
 
         $delegator = $this->createMockUser(1, canManageUsers: false);
@@ -699,7 +699,7 @@ final class DelegationServiceTest extends TestCase
     private function createMockUser(
         int $id,
         bool $canManageUsers = false,
-        ?int $maxUsers = null
+        ?int $maxUsers = null,
     ): DelegatableUserInterface {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);

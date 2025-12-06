@@ -20,6 +20,25 @@ final readonly class SpatiePermissionAdapter implements PermissionInterface
         private SpatiePermissionContract $permission,
     ) {}
 
+    /**
+     * Create adapter from a Spatie Permission model.
+     */
+    public static function fromModel(SpatiePermissionContract $permission): self
+    {
+        return new self($permission);
+    }
+
+    /**
+     * Create a collection of adapters from Spatie Permission models.
+     *
+     * @param  Collection<int, SpatiePermissionContract>  $permissions
+     * @return Collection<int, self>
+     */
+    public static function collection(Collection $permissions): Collection
+    {
+        return $permissions->map(fn (SpatiePermissionContract $permission): self => new self($permission));
+    }
+
     public function getPermissionIdentifier(): int|string
     {
         /** @var int|string */
@@ -44,25 +63,6 @@ final readonly class SpatiePermissionAdapter implements PermissionInterface
     public function getModel(): SpatiePermissionContract
     {
         return $this->permission;
-    }
-
-    /**
-     * Create adapter from a Spatie Permission model.
-     */
-    public static function fromModel(SpatiePermissionContract $permission): self
-    {
-        return new self($permission);
-    }
-
-    /**
-     * Create a collection of adapters from Spatie Permission models.
-     *
-     * @param  Collection<int, SpatiePermissionContract>  $permissions
-     * @return Collection<int, self>
-     */
-    public static function collection(Collection $permissions): Collection
-    {
-        return $permissions->map(fn (SpatiePermissionContract $permission): self => new self($permission));
     }
 
     /**

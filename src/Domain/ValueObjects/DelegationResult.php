@@ -21,7 +21,7 @@ final readonly class DelegationResult
         public bool $success,
         public ?string $message = null,
         public array $data = [],
-        public array $errors = []
+        public array $errors = [],
     ) {}
 
     /**
@@ -35,7 +35,7 @@ final readonly class DelegationResult
             success: true,
             message: $message,
             data: $data,
-            errors: []
+            errors: [],
         );
     }
 
@@ -50,7 +50,7 @@ final readonly class DelegationResult
             success: false,
             message: $message,
             data: [],
-            errors: $errors
+            errors: $errors,
         );
     }
 
@@ -65,7 +65,7 @@ final readonly class DelegationResult
             success: false,
             message: 'Validation failed.',
             data: [],
-            errors: $errors
+            errors: $errors,
         );
     }
 

@@ -85,7 +85,7 @@ interface DelegationRepositoryInterface
     public function updateDelegationSettings(
         DelegatableUserInterface $user,
         bool $canManageUsers,
-        ?int $maxManageableUsers
+        ?int $maxManageableUsers,
     ): void;
 
     /**

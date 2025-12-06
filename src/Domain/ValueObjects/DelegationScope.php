@@ -23,7 +23,7 @@ final readonly class DelegationScope
         public bool $canManageUsers = false,
         public ?int $maxManageableUsers = null,
         public array $assignableRoleIds = [],
-        public array $assignablePermissionIds = []
+        public array $assignablePermissionIds = [],
     ) {
         if ($maxManageableUsers !== null && $maxManageableUsers < 0) {
             throw new InvalidArgumentException('Max manageable users cannot be negative.');
@@ -39,7 +39,7 @@ final readonly class DelegationScope
             canManageUsers: false,
             maxManageableUsers: null,
             assignableRoleIds: [],
-            assignablePermissionIds: []
+            assignablePermissionIds: [],
         );
     }
 
@@ -55,7 +55,7 @@ final readonly class DelegationScope
             canManageUsers: true,
             maxManageableUsers: null,
             assignableRoleIds: $roleIds,
-            assignablePermissionIds: $permissionIds
+            assignablePermissionIds: $permissionIds,
         );
     }
 
@@ -68,13 +68,28 @@ final readonly class DelegationScope
     public static function limited(
         int $maxUsers,
         array $roleIds = [],
-        array $permissionIds = []
+        array $permissionIds = [],
     ): self {
         return new self(
             canManageUsers: true,
             maxManageableUsers: $maxUsers,
             assignableRoleIds: $roleIds,
-            assignablePermissionIds: $permissionIds
+            assignablePermissionIds: $permissionIds,
+        );
+    }
+
+    /**
+     * Create from array (from storage/serialization).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            canManageUsers: (bool) ($data['can_manage_users'] ?? false),
+            maxManageableUsers: isset($data['max_manageable_users']) ? (int) $data['max_manageable_users'] : null,
+            assignableRoleIds: $data['assignable_role_ids'] ?? [],
+            assignablePermissionIds: $data['assignable_permission_ids'] ?? [],
         );
     }
 
@@ -119,7 +134,7 @@ final readonly class DelegationScope
             canManageUsers: $canManage,
             maxManageableUsers: $this->maxManageableUsers,
             assignableRoleIds: $this->assignableRoleIds,
-            assignablePermissionIds: $this->assignablePermissionIds
+            assignablePermissionIds: $this->assignablePermissionIds,
         );
     }
 
@@ -132,7 +147,7 @@ final readonly class DelegationScope
             canManageUsers: $this->canManageUsers,
             maxManageableUsers: $max,
             assignableRoleIds: $this->assignableRoleIds,
-            assignablePermissionIds: $this->assignablePermissionIds
+            assignablePermissionIds: $this->assignablePermissionIds,
         );
     }
 
@@ -147,7 +162,7 @@ final readonly class DelegationScope
             canManageUsers: $this->canManageUsers,
             maxManageableUsers: $this->maxManageableUsers,
             assignableRoleIds: $roleIds,
-            assignablePermissionIds: $this->assignablePermissionIds
+            assignablePermissionIds: $this->assignablePermissionIds,
         );
     }
 
@@ -162,7 +177,7 @@ final readonly class DelegationScope
             canManageUsers: $this->canManageUsers,
             maxManageableUsers: $this->maxManageableUsers,
             assignableRoleIds: $this->assignableRoleIds,
-            assignablePermissionIds: $permissionIds
+            assignablePermissionIds: $permissionIds,
         );
     }
 
@@ -179,21 +194,6 @@ final readonly class DelegationScope
             'assignable_role_ids' => $this->assignableRoleIds,
             'assignable_permission_ids' => $this->assignablePermissionIds,
         ];
-    }
-
-    /**
-     * Create from array (from storage/serialization).
-     *
-     * @param  array<string, mixed>  $data
-     */
-    public static function fromArray(array $data): self
-    {
-        return new self(
-            canManageUsers: (bool) ($data['can_manage_users'] ?? false),
-            maxManageableUsers: isset($data['max_manageable_users']) ? (int) $data['max_manageable_users'] : null,
-            assignableRoleIds: $data['assignable_role_ids'] ?? [],
-            assignablePermissionIds: $data['assignable_permission_ids'] ?? []
-        );
     }
 
     /**

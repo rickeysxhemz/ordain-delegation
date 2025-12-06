@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Providers;
 
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -38,7 +37,7 @@ final class DelegationServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(
             __DIR__.'/../Config/permission-delegation.php',
-            'permission-delegation'
+            'permission-delegation',
         );
 
         $this->registerRepositories();
@@ -58,11 +57,28 @@ final class DelegationServiceProvider extends ServiceProvider
     }
 
     /**
+     * Get the services provided by the provider.
+     *
+     * @return array<int, string>
+     */
+    public function provides(): array
+    {
+        return [
+            DelegationServiceInterface::class,
+            DelegationRepositoryInterface::class,
+            RoleRepositoryInterface::class,
+            PermissionRepositoryInterface::class,
+            DelegationAuditInterface::class,
+            'delegation',
+        ];
+    }
+
+    /**
      * Register repository bindings.
      */
     private function registerRepositories(): void
     {
-        $this->app->singleton(DelegationRepositoryInterface::class, static fn (): EloquentDelegationRepository => new EloquentDelegationRepository());
+        $this->app->singleton(DelegationRepositoryInterface::class, static fn (): EloquentDelegationRepository => new EloquentDelegationRepository);
 
         $this->app->singleton(RoleRepositoryInterface::class, static function (): SpatieRoleRepository {
             /** @var string $roleModel */
@@ -86,18 +102,18 @@ final class DelegationServiceProvider extends ServiceProvider
     {
         $this->app->singleton(DelegationAuditInterface::class, function (): DelegationAuditInterface {
             if (! config('permission-delegation.audit.enabled', true)) {
-                return new NullDelegationAudit();
+                return new NullDelegationAudit;
             }
 
             /** @var string $driver */
             $driver = config('permission-delegation.audit.driver', 'database');
 
             return match ($driver) {
-                'database' => new DatabaseDelegationAudit(),
+                'database' => new DatabaseDelegationAudit,
                 'log' => new LogDelegationAudit(
-                    config('permission-delegation.audit.log_channel', 'stack')
+                    config('permission-delegation.audit.log_channel', 'stack'),
                 ),
-                'null' => new NullDelegationAudit(),
+                'null' => new NullDelegationAudit,
                 default => $this->app->make($driver),
             };
         });
@@ -206,22 +222,5 @@ final class DelegationServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../Database/Migrations/' => database_path('migrations'),
         ], 'delegation-migrations');
-    }
-
-    /**
-     * Get the services provided by the provider.
-     *
-     * @return array<int, string>
-     */
-    public function provides(): array
-    {
-        return [
-            DelegationServiceInterface::class,
-            DelegationRepositoryInterface::class,
-            RoleRepositoryInterface::class,
-            PermissionRepositoryInterface::class,
-            DelegationAuditInterface::class,
-            'delegation',
-        ];
     }
 }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Contracts;
 
-use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Illuminate\Support\Collection;
+use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 
 /**
  * Main service interface for permission delegation operations.
@@ -20,7 +20,7 @@ interface DelegationServiceInterface
     public function canAssignRole(
         DelegatableUserInterface $delegator,
         RoleInterface $role,
-        ?DelegatableUserInterface $target = null
+        ?DelegatableUserInterface $target = null,
     ): bool;
 
     /**
@@ -29,7 +29,7 @@ interface DelegationServiceInterface
     public function canAssignPermission(
         DelegatableUserInterface $delegator,
         PermissionInterface $permission,
-        ?DelegatableUserInterface $target = null
+        ?DelegatableUserInterface $target = null,
     ): bool;
 
     /**
@@ -38,7 +38,7 @@ interface DelegationServiceInterface
     public function canRevokeRole(
         DelegatableUserInterface $delegator,
         RoleInterface $role,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool;
 
     /**
@@ -47,7 +47,7 @@ interface DelegationServiceInterface
     public function canRevokePermission(
         DelegatableUserInterface $delegator,
         PermissionInterface $permission,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool;
 
     /**
@@ -88,7 +88,7 @@ interface DelegationServiceInterface
     public function setDelegationScope(
         DelegatableUserInterface $user,
         DelegationScope $scope,
-        ?DelegatableUserInterface $admin = null
+        ?DelegatableUserInterface $admin = null,
     ): void;
 
     /**
@@ -104,7 +104,7 @@ interface DelegationServiceInterface
     public function delegateRole(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void;
 
     /**
@@ -115,7 +115,7 @@ interface DelegationServiceInterface
     public function delegatePermission(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void;
 
     /**
@@ -126,7 +126,7 @@ interface DelegationServiceInterface
     public function revokeRole(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void;
 
     /**
@@ -137,7 +137,7 @@ interface DelegationServiceInterface
     public function revokePermission(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void;
 
     /**
@@ -145,7 +145,7 @@ interface DelegationServiceInterface
      */
     public function canManageUser(
         DelegatableUserInterface $delegator,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool;
 
     /**
@@ -157,6 +157,6 @@ interface DelegationServiceInterface
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
         array $roles = [],
-        array $permissions = []
+        array $permissions = [],
     ): array;
 }

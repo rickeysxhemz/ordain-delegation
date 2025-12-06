@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Services\Audit;
 
+use Illuminate\Support\Facades\DB;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\Enums\DelegationAction;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Database-based implementation of audit logging.
@@ -21,7 +21,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logRoleAssigned(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         $this->log(DelegationAction::ROLE_ASSIGNED, $delegator, $target, [
             'role_id' => $role->getRoleIdentifier(),
@@ -32,7 +32,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logRoleRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         $this->log(DelegationAction::ROLE_REVOKED, $delegator, $target, [
             'role_id' => $role->getRoleIdentifier(),
@@ -43,7 +43,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logPermissionGranted(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         $this->log(DelegationAction::PERMISSION_GRANTED, $delegator, $target, [
             'permission_id' => $permission->getPermissionIdentifier(),
@@ -54,7 +54,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logPermissionRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         $this->log(DelegationAction::PERMISSION_REVOKED, $delegator, $target, [
             'permission_id' => $permission->getPermissionIdentifier(),
@@ -65,7 +65,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logDelegationScopeChanged(
         DelegatableUserInterface $admin,
         DelegatableUserInterface $user,
-        array $changes
+        array $changes,
     ): void {
         $this->log(DelegationAction::SCOPE_UPDATED, $admin, $user, [
             'changes' => $changes,
@@ -75,7 +75,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     public function logUnauthorizedAttempt(
         DelegatableUserInterface $delegator,
         string $action,
-        array $context = []
+        array $context = [],
     ): void {
         $this->log(DelegationAction::UNAUTHORIZED_ATTEMPT, $delegator, null, array_merge([
             'attempted_action' => $action,
@@ -84,7 +84,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
 
     public function logUserCreated(
         DelegatableUserInterface $creator,
-        DelegatableUserInterface $createdUser
+        DelegatableUserInterface $createdUser,
     ): void {
         $this->log(DelegationAction::USER_CREATED, $creator, $createdUser, []);
     }
@@ -96,7 +96,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
         DelegationAction $action,
         DelegatableUserInterface $performedBy,
         ?DelegatableUserInterface $targetUser,
-        array $metadata
+        array $metadata,
     ): void {
         $table = config('permission-delegation.tables.delegation_audit_logs', 'delegation_audit_logs');
         $request = request();

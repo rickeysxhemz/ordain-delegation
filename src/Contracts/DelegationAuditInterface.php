@@ -17,7 +17,7 @@ interface DelegationAuditInterface
     public function logRoleAssigned(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void;
 
     /**
@@ -26,7 +26,7 @@ interface DelegationAuditInterface
     public function logRoleRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void;
 
     /**
@@ -35,7 +35,7 @@ interface DelegationAuditInterface
     public function logPermissionGranted(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void;
 
     /**
@@ -44,7 +44,7 @@ interface DelegationAuditInterface
     public function logPermissionRevoked(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void;
 
     /**
@@ -53,7 +53,7 @@ interface DelegationAuditInterface
     public function logDelegationScopeChanged(
         DelegatableUserInterface $admin,
         DelegatableUserInterface $user,
-        array $changes
+        array $changes,
     ): void;
 
     /**
@@ -62,7 +62,7 @@ interface DelegationAuditInterface
     public function logUnauthorizedAttempt(
         DelegatableUserInterface $delegator,
         string $action,
-        array $context = []
+        array $context = [],
     ): void;
 
     /**
@@ -70,6 +70,6 @@ interface DelegationAuditInterface
      */
     public function logUserCreated(
         DelegatableUserInterface $creator,
-        DelegatableUserInterface $createdUser
+        DelegatableUserInterface $createdUser,
     ): void;
 }

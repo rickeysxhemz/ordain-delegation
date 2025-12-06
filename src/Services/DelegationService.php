@@ -31,13 +31,13 @@ final class DelegationService implements DelegationServiceInterface
         private readonly PermissionRepositoryInterface $permissionRepository,
         private readonly ?DelegationAuditInterface $audit = null,
         private readonly bool $superAdminBypassEnabled = true,
-        private readonly ?string $superAdminIdentifier = null
+        private readonly ?string $superAdminIdentifier = null,
     ) {}
 
     public function canAssignRole(
         DelegatableUserInterface $delegator,
         RoleInterface $role,
-        ?DelegatableUserInterface $target = null
+        ?DelegatableUserInterface $target = null,
     ): bool {
         if ($this->isSuperAdmin($delegator)) {
             return true;
@@ -57,7 +57,7 @@ final class DelegationService implements DelegationServiceInterface
     public function canAssignPermission(
         DelegatableUserInterface $delegator,
         PermissionInterface $permission,
-        ?DelegatableUserInterface $target = null
+        ?DelegatableUserInterface $target = null,
     ): bool {
         if ($this->isSuperAdmin($delegator)) {
             return true;
@@ -77,7 +77,7 @@ final class DelegationService implements DelegationServiceInterface
     public function canRevokeRole(
         DelegatableUserInterface $delegator,
         RoleInterface $role,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool {
         // Same logic as assignment - if you can assign it, you can revoke it
         return $this->canAssignRole($delegator, $role, $target);
@@ -86,7 +86,7 @@ final class DelegationService implements DelegationServiceInterface
     public function canRevokePermission(
         DelegatableUserInterface $delegator,
         PermissionInterface $permission,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool {
         // Same logic as assignment - if you can grant it, you can revoke it
         return $this->canAssignPermission($delegator, $permission, $target);
@@ -163,7 +163,7 @@ final class DelegationService implements DelegationServiceInterface
     public function setDelegationScope(
         DelegatableUserInterface $user,
         DelegationScope $scope,
-        ?DelegatableUserInterface $admin = null
+        ?DelegatableUserInterface $admin = null,
     ): void {
         $oldScope = $this->getDelegationScope($user);
 
@@ -171,7 +171,7 @@ final class DelegationService implements DelegationServiceInterface
             $this->delegationRepository->updateDelegationSettings(
                 $user,
                 $scope->canManageUsers,
-                $scope->maxManageableUsers
+                $scope->maxManageableUsers,
             );
 
             $this->delegationRepository->syncAssignableRoles($user, $scope->assignableRoleIds);
@@ -195,14 +195,14 @@ final class DelegationService implements DelegationServiceInterface
             canManageUsers: $user->canManageUsers(),
             maxManageableUsers: $user->getMaxManageableUsers(),
             assignableRoleIds: $assignableRoles->map(fn (RoleInterface $r) => $r->getRoleIdentifier())->toArray(),
-            assignablePermissionIds: $assignablePermissions->map(fn (PermissionInterface $p) => $p->getPermissionIdentifier())->toArray()
+            assignablePermissionIds: $assignablePermissions->map(fn (PermissionInterface $p) => $p->getPermissionIdentifier())->toArray(),
         );
     }
 
     public function delegateRole(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         if (! $this->canAssignRole($delegator, $role, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'assign_role', [
@@ -220,7 +220,7 @@ final class DelegationService implements DelegationServiceInterface
     public function delegatePermission(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         if (! $this->canAssignPermission($delegator, $permission, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'grant_permission', [
@@ -238,7 +238,7 @@ final class DelegationService implements DelegationServiceInterface
     public function revokeRole(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        RoleInterface $role
+        RoleInterface $role,
     ): void {
         if (! $this->canRevokeRole($delegator, $role, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'revoke_role', [
@@ -256,7 +256,7 @@ final class DelegationService implements DelegationServiceInterface
     public function revokePermission(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
-        PermissionInterface $permission
+        PermissionInterface $permission,
     ): void {
         if (! $this->canRevokePermission($delegator, $permission, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'revoke_permission', [
@@ -273,7 +273,7 @@ final class DelegationService implements DelegationServiceInterface
 
     public function canManageUser(
         DelegatableUserInterface $delegator,
-        DelegatableUserInterface $target
+        DelegatableUserInterface $target,
     ): bool {
         if ($this->isSuperAdmin($delegator)) {
             return true;
@@ -301,7 +301,7 @@ final class DelegationService implements DelegationServiceInterface
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
         array $roles = [],
-        array $permissions = []
+        array $permissions = [],
     ): array {
         $errors = [];
 

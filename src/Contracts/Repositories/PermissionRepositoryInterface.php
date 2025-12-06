@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Contracts\Repositories;
 
+use Illuminate\Support\Collection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
-use Illuminate\Support\Collection;
 
 /**
  * Repository interface for permission operations.

@@ -20,6 +20,25 @@ final readonly class SpatieRoleAdapter implements RoleInterface
         private SpatieRoleContract $role,
     ) {}
 
+    /**
+     * Create adapter from a Spatie Role model.
+     */
+    public static function fromModel(SpatieRoleContract $role): self
+    {
+        return new self($role);
+    }
+
+    /**
+     * Create a collection of adapters from Spatie Role models.
+     *
+     * @param  Collection<int, SpatieRoleContract>  $roles
+     * @return Collection<int, self>
+     */
+    public static function collection(Collection $roles): Collection
+    {
+        return $roles->map(fn (SpatieRoleContract $role): self => new self($role));
+    }
+
     public function getRoleIdentifier(): int|string
     {
         /** @var int|string */
@@ -44,25 +63,6 @@ final readonly class SpatieRoleAdapter implements RoleInterface
     public function getModel(): SpatieRoleContract
     {
         return $this->role;
-    }
-
-    /**
-     * Create adapter from a Spatie Role model.
-     */
-    public static function fromModel(SpatieRoleContract $role): self
-    {
-        return new self($role);
-    }
-
-    /**
-     * Create a collection of adapters from Spatie Role models.
-     *
-     * @param  Collection<int, SpatieRoleContract>  $roles
-     * @return Collection<int, self>
-     */
-    public static function collection(Collection $roles): Collection
-    {
-        return $roles->map(fn (SpatieRoleContract $role): self => new self($role));
     }
 
     /**

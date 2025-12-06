@@ -28,7 +28,7 @@ final class DelegationResultTest extends TestCase
     {
         $result = DelegationResult::success(
             message: 'Role assigned successfully.',
-            data: ['role_id' => 1, 'user_id' => 42]
+            data: ['role_id' => 1, 'user_id' => 42],
         );
 
         $this->assertTrue($result->isSuccess());
@@ -106,7 +106,7 @@ final class DelegationResultTest extends TestCase
     public function get_data_returns_specific_data(): void
     {
         $result = DelegationResult::success(
-            data: ['user_id' => 42, 'role' => 'admin']
+            data: ['user_id' => 42, 'role' => 'admin'],
         );
 
         $this->assertSame(42, $result->getData('user_id'));
@@ -128,7 +128,7 @@ final class DelegationResultTest extends TestCase
     {
         $result = DelegationResult::success(
             message: 'Done.',
-            data: ['id' => 1]
+            data: ['id' => 1],
         );
 
         $array = $result->toArray();
@@ -146,7 +146,7 @@ final class DelegationResultTest extends TestCase
     {
         $result = DelegationResult::failure(
             'Failed.',
-            ['field' => 'Error message.']
+            ['field' => 'Error message.'],
         );
 
         $array = $result->toArray();

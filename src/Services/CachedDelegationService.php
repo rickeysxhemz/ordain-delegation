@@ -120,7 +120,7 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     public function setDelegationScope(
         DelegatableUserInterface $user,
         DelegationScope $scope,
-        ?DelegatableUserInterface $admin = null
+        ?DelegatableUserInterface $admin = null,
     ): void {
         $this->inner->setDelegationScope($user, $scope, $admin);
         $this->forgetUserCache($user);
