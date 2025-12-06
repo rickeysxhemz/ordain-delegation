@@ -1,0 +1,22 @@
+includes:
+    - ./vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    tmpDir: build/phpstan
+    checkOctaneCompatibility: true
+    checkModelProperties: true
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        # Allow dynamic property access on Eloquent models
+        - '#Access to an undefined property [a-zA-Z0-9\\_]+::\$[a-zA-Z0-9_]+#'
+
+        # Allow calling methods on HasDelegation trait implementations
+        - '#Call to an undefined method Ordain\\Delegation\\Contracts\\DelegatableUserInterface::#'
+
+    excludePaths:
+        - tests/Pest.php

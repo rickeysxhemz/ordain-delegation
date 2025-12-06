@@ -1,0 +1,86 @@
+version: 2
+
+registries:
+  composer-packagist:
+    type: composer-repository
+    url: https://packagist.org
+
+updates:
+  # Composer dependencies - Security focused for governance package
+  - package-ecosystem: composer
+    directory: /
+    registries:
+      - composer-packagist
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    rebase-strategy: auto
+    versioning-strategy: increase
+    labels:
+      - dependencies
+      - php
+      - security
+    commit-message:
+      prefix: deps
+      include: scope
+    # Group production dependencies
+    groups:
+      laravel:
+        applies-to: version-updates
+        patterns:
+          - "illuminate/*"
+          - "laravel/*"
+        update-types:
+          - minor
+          - patch
+      spatie:
+        applies-to: version-updates
+        patterns:
+          - "spatie/*"
+        update-types:
+          - minor
+          - patch
+      dev-tools:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "laravel/pint"
+          - "mockery/*"
+          - "orchestra/testbench"
+          - "pestphp/*"
+          - "phpstan/*"
+          - "vimeo/psalm"
+          - "infection/*"
+        update-types:
+          - minor
+          - patch
+    # Ignore known problematic versions
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # GitHub Actions - keep CI up to date (daily for security)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 5
+    rebase-strategy: auto
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

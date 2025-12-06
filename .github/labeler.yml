@@ -1,0 +1,83 @@
+# Labels for PR Labeler action (actions/labeler@v6)
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'README.md'
+          - 'CHANGELOG.md'
+          - 'CONTRIBUTING.md'
+          - 'UPGRADE.md'
+          - 'docs/**'
+          - '.github/**/*.md'
+
+source:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+          - 'phpunit.xml'
+          - 'phpunit.xml.dist'
+          - 'infection.json5'
+          - 'infection.json'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Config/**'
+          - 'config/**'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Database/**'
+          - 'database/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+          - '.github/labeler.yml'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'composer.json'
+          - 'composer.lock'
+
+static-analysis:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'phpstan.neon'
+          - 'phpstan.neon.dist'
+          - 'phpstan-baseline.neon'
+          - 'psalm.xml'
+          - 'psalm.xml.dist'
+
+code-style:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pint.json'
+          - '.php-cs-fixer.php'
+          - '.php-cs-fixer.dist.php'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'SECURITY.md'
+          - '.github/ISSUE_TEMPLATE/security_vulnerability.yml'
+
+# Governance-specific labels
+contracts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Contracts/**'
+
+domain:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Domain/**'

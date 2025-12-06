@@ -1,0 +1,76 @@
+name: Mutation Testing
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/**'
+      - 'tests/**'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    name: Infection
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath
+          coverage: pcov
+          ini-values: pcov.enabled=1
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: dependencies-mutation-composer-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            dependencies-mutation-composer-
+
+      - name: Install dependencies
+        run: |
+          composer require --dev infection/infection:^0.31 --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Create coverage directory
+        run: mkdir -p build/coverage
+
+      - name: Generate coverage
+        run: vendor/bin/pest --coverage-xml=build/coverage/coverage-xml --coverage-php=build/coverage/coverage.php
+
+      - name: Run Infection
+        run: |
+          vendor/bin/infection \
+            --min-msi=70 \
+            --min-covered-msi=80 \
+            --threads=4 \
+            --coverage=build/coverage \
+            --skip-initial-tests \
+            --logger-github \
+            --no-progress
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}

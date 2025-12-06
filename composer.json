@@ -1,0 +1,73 @@
+{
+    "name": "ordain/delegation",
+    "description": "A hierarchical permission delegation system for Laravel - control who can assign roles and permissions to whom",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "permission",
+        "delegation",
+        "roles",
+        "authorization",
+        "rbac",
+        "hierarchy",
+        "spatie"
+    ],
+    "authors": [
+        {
+            "name": "Ordain",
+            "email": "dev@ordain.dev"
+        }
+    ],
+    "homepage": "https://github.com/ordain/delegation",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/contracts": "^11.0|^12.0",
+        "illuminate/cache": "^11.0|^12.0",
+        "spatie/laravel-permission": "^6.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18",
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ordain\\Delegation\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ordain\\Delegation\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Ordain\\Delegation\\Providers\\DelegationServiceProvider"
+            ],
+            "aliases": {
+                "Delegation": "Ordain\\Delegation\\Facades\\Delegation"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "test-coverage": "pest --coverage",
+        "format": "pint",
+        "analyse": "phpstan analyse"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
