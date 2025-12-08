@@ -28,6 +28,18 @@ final readonly class DelegationScope
         if ($maxManageableUsers !== null && $maxManageableUsers < 0) {
             throw new InvalidArgumentException('Max manageable users cannot be negative.');
         }
+
+        foreach ($assignableRoleIds as $id) {
+            if (! is_int($id) && ! is_string($id)) {
+                throw new InvalidArgumentException('Assignable role IDs must be integers or strings.');
+            }
+        }
+
+        foreach ($assignablePermissionIds as $id) {
+            if (! is_int($id) && ! is_string($id)) {
+                throw new InvalidArgumentException('Assignable permission IDs must be integers or strings.');
+            }
+        }
     }
 
     /**
@@ -85,11 +97,21 @@ final readonly class DelegationScope
      */
     public static function fromArray(array $data): self
     {
+        $roleIds = array_filter(
+            $data['assignable_role_ids'] ?? [],
+            static fn (mixed $id): bool => is_int($id) || is_string($id),
+        );
+
+        $permissionIds = array_filter(
+            $data['assignable_permission_ids'] ?? [],
+            static fn (mixed $id): bool => is_int($id) || is_string($id),
+        );
+
         return new self(
             canManageUsers: (bool) ($data['can_manage_users'] ?? false),
             maxManageableUsers: isset($data['max_manageable_users']) ? (int) $data['max_manageable_users'] : null,
-            assignableRoleIds: $data['assignable_role_ids'] ?? [],
-            assignablePermissionIds: $data['assignable_permission_ids'] ?? [],
+            assignableRoleIds: array_values($roleIds),
+            assignablePermissionIds: array_values($permissionIds),
         );
     }
 

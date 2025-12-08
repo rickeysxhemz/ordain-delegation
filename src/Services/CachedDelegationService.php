@@ -79,6 +79,16 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
         return $this->cache->remember($key, $this->ttl, fn (): bool => $this->inner->canCreateUsers($delegator));
     }
 
+    public function withQuotaLock(
+        DelegatableUserInterface $delegator,
+        callable $callback,
+    ): DelegatableUserInterface {
+        $result = $this->inner->withQuotaLock($delegator, $callback);
+        $this->forgetUserCache($delegator);
+
+        return $result;
+    }
+
     public function hasReachedUserLimit(DelegatableUserInterface $delegator): bool
     {
         // Don't cache - this changes frequently
@@ -177,6 +187,8 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     }
 
     /**
+     * @param  array<int|string>  $roles
+     * @param  array<int|string>  $permissions
      * @return array<string, string>
      */
     public function validateDelegation(

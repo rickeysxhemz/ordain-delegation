@@ -12,11 +12,7 @@ use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Middleware to check if the authenticated user can assign a specific role.
- *
- * Usage in routes:
- *   Route::middleware('can.assign.role:editor')->post('/users/{user}/roles', ...);
- *   Route::middleware('can.assign.role:admin,manager')->post('/users/{user}/promote', ...);
+ * Middleware to check if the authenticated user can assign specific roles.
  */
 final readonly class CanAssignRoleMiddleware
 {
@@ -35,19 +31,27 @@ final readonly class CanAssignRoleMiddleware
     {
         $user = $request->user();
 
+        if ($user === null) {
+            abort(401, 'Unauthenticated.');
+        }
+
         if (! $user instanceof DelegatableUserInterface) {
             abort(403, 'User model does not support delegation.');
+        }
+
+        if ($roleNames === []) {
+            return $next($request);
         }
 
         foreach ($roleNames as $roleName) {
             $role = $this->roleRepository->findByName($roleName);
 
             if ($role === null) {
-                abort(404, "Role '{$roleName}' not found.");
+                abort(404, "Role '$roleName' not found.");
             }
 
             if (! $this->delegation->canAssignRole($user, $role)) {
-                abort(403, "You are not authorized to assign the '{$roleName}' role.");
+                abort(403, "You are not authorized to assign the '$roleName' role.");
             }
         }
 

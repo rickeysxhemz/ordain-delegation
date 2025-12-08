@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Contracts\DelegatableUserInterface;
-use Ewaa\PermissionDelegation\Contracts\PermissionInterface;
-use Ewaa\PermissionDelegation\Contracts\RoleInterface;
-use Ewaa\PermissionDelegation\Services\Audit\NullDelegationAudit;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\RoleInterface;
+use Ordain\Delegation\Services\Audit\NullDelegationAudit;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -80,8 +80,18 @@ final class NullDelegationAuditTest extends TestCase
         $user = $this->createMockUser(2);
 
         $this->audit->logDelegationScopeChanged($admin, $user, [
-            'can_manage_users' => true,
-            'max_users' => 10,
+            'old' => [
+                'can_manage_users' => false,
+                'max_manageable_users' => null,
+                'assignable_role_ids' => [],
+                'assignable_permission_ids' => [],
+            ],
+            'new' => [
+                'can_manage_users' => true,
+                'max_manageable_users' => 10,
+                'assignable_role_ids' => [1, 2],
+                'assignable_permission_ids' => [1],
+            ],
         ]);
 
         $this->assertTrue(true);

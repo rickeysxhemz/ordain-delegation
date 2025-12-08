@@ -61,10 +61,18 @@ describe('SpatieRoleAdapter', function (): void {
         $roles = new Collection([$this->mockRole, $mockRole2]);
         $adapters = SpatieRoleAdapter::collection($roles);
 
-        expect($adapters)->toHaveCount(2)
-            ->and($adapters->first())->toBeInstanceOf(SpatieRoleAdapter::class)
-            ->and($adapters->first()->getRoleName())->toBe('admin')
-            ->and($adapters->last()->getRoleName())->toBe('editor');
+        expect($adapters)->toHaveCount(2);
+
+        $first = $adapters->first();
+        $last = $adapters->last();
+
+        expect($first)->toBeInstanceOf(SpatieRoleAdapter::class);
+        expect($last)->toBeInstanceOf(SpatieRoleAdapter::class);
+
+        if ($first instanceof SpatieRoleAdapter && $last instanceof SpatieRoleAdapter) {
+            expect($first->getRoleName())->toBe('admin')
+                ->and($last->getRoleName())->toBe('editor');
+        }
     });
 
     it('checks equality correctly', function (): void {

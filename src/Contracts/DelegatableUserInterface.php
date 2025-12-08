@@ -60,4 +60,13 @@ interface DelegatableUserInterface
      * Get permissions assigned to this user.
      */
     public function permissions(): BelongsToMany;
+
+    /**
+     * Update the model in the database.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $options
+     * @return bool
+     */
+    public function update(array $attributes = [], array $options = []);
 }

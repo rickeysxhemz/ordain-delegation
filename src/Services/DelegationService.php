@@ -23,15 +23,15 @@ use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
  * This service orchestrates all delegation operations while respecting
  * the boundaries defined by user delegation scopes.
  */
-final class DelegationService implements DelegationServiceInterface
+final readonly class DelegationService implements DelegationServiceInterface
 {
     public function __construct(
-        private readonly DelegationRepositoryInterface $delegationRepository,
-        private readonly RoleRepositoryInterface $roleRepository,
-        private readonly PermissionRepositoryInterface $permissionRepository,
-        private readonly ?DelegationAuditInterface $audit = null,
-        private readonly bool $superAdminBypassEnabled = true,
-        private readonly ?string $superAdminIdentifier = null,
+        private DelegationRepositoryInterface $delegationRepository,
+        private RoleRepositoryInterface $roleRepository,
+        private PermissionRepositoryInterface $permissionRepository,
+        private ?DelegationAuditInterface $audit = null,
+        private bool $superAdminBypassEnabled = true,
+        private ?string $superAdminIdentifier = null,
     ) {}
 
     public function canAssignRole(
@@ -103,6 +103,28 @@ final class DelegationService implements DelegationServiceInterface
         }
 
         return ! $this->hasReachedUserLimit($delegator);
+    }
+
+    public function withQuotaLock(
+        DelegatableUserInterface $delegator,
+        callable $callback,
+    ): DelegatableUserInterface {
+        return DB::transaction(function () use ($delegator, $callback): DelegatableUserInterface {
+            DB::table('users')
+                ->where('id', $delegator->getDelegatableIdentifier())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $this->canCreateUsers($delegator)) {
+                $maxUsers = $delegator->getMaxManageableUsers();
+
+                throw $maxUsers !== null
+                    ? UnauthorizedDelegationException::userLimitReached($delegator, $maxUsers)
+                    : UnauthorizedDelegationException::cannotCreateUsers($delegator);
+            }
+
+            return $callback();
+        });
     }
 
     public function hasReachedUserLimit(DelegatableUserInterface $delegator): bool
@@ -297,6 +319,11 @@ final class DelegationService implements DelegationServiceInterface
         return false;
     }
 
+    /**
+     * @param  array<int|string>  $roles
+     * @param  array<int|string>  $permissions
+     * @return array<string, string>
+     */
     public function validateDelegation(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
@@ -340,6 +367,8 @@ final class DelegationService implements DelegationServiceInterface
 
     /**
      * Check if user is a super admin (bypasses all delegation checks).
+     *
+     * Uses once() for request-scoped caching to prevent N+1 queries.
      */
     private function isSuperAdmin(DelegatableUserInterface $user): bool
     {
@@ -351,15 +380,16 @@ final class DelegationService implements DelegationServiceInterface
             return false;
         }
 
-        // Check if user has the super admin role/identifier
-        $roles = $this->roleRepository->getUserRoles($user);
+        return once(function () use ($user): bool {
+            $roles = $this->roleRepository->getUserRoles($user);
 
-        foreach ($roles as $role) {
-            if ($role->getRoleName() === $this->superAdminIdentifier) {
-                return true;
+            foreach ($roles as $role) {
+                if ($role->getRoleName() === $this->superAdminIdentifier) {
+                    return true;
+                }
             }
-        }
 
-        return false;
+            return false;
+        });
     }
 }

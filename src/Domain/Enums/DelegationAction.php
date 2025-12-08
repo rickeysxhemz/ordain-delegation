@@ -50,7 +50,10 @@ enum DelegationAction: string
      */
     public function isGrant(): bool
     {
-        return in_array($this, [self::ROLE_ASSIGNED, self::PERMISSION_GRANTED], true);
+        return match ($this) {
+            self::ROLE_ASSIGNED, self::PERMISSION_GRANTED => true,
+            default => false,
+        };
     }
 
     /**
@@ -58,6 +61,9 @@ enum DelegationAction: string
      */
     public function isRevoke(): bool
     {
-        return in_array($this, [self::ROLE_REVOKED, self::PERMISSION_REVOKED], true);
+        return match ($this) {
+            self::ROLE_REVOKED, self::PERMISSION_REVOKED => true,
+            default => false,
+        };
     }
 }

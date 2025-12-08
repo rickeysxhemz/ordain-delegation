@@ -2,20 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Contracts\DelegatableUserInterface;
-use Ewaa\PermissionDelegation\Contracts\DelegationAuditInterface;
-use Ewaa\PermissionDelegation\Contracts\PermissionInterface;
-use Ewaa\PermissionDelegation\Contracts\Repositories\DelegationRepositoryInterface;
-use Ewaa\PermissionDelegation\Contracts\Repositories\PermissionRepositoryInterface;
-use Ewaa\PermissionDelegation\Contracts\Repositories\RoleRepositoryInterface;
-use Ewaa\PermissionDelegation\Contracts\RoleInterface;
-use Ewaa\PermissionDelegation\Domain\ValueObjects\DelegationScope;
-use Ewaa\PermissionDelegation\Exceptions\UnauthorizedDelegationException;
-use Ewaa\PermissionDelegation\Services\DelegationService;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use Mockery\MockInterface;
+use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\DelegationAuditInterface;
+use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
+use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
+use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
+use Ordain\Delegation\Contracts\RoleInterface;
+use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
+use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
+use Ordain\Delegation\Services\DelegationService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -23,13 +24,13 @@ final class DelegationServiceTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
-    private DelegationRepositoryInterface $delegationRepository;
+    private MockInterface&DelegationRepositoryInterface $delegationRepository;
 
-    private RoleRepositoryInterface $roleRepository;
+    private MockInterface&RoleRepositoryInterface $roleRepository;
 
-    private PermissionRepositoryInterface $permissionRepository;
+    private MockInterface&PermissionRepositoryInterface $permissionRepository;
 
-    private DelegationAuditInterface $audit;
+    private MockInterface&DelegationAuditInterface $audit;
 
     private DelegationService $service;
 
@@ -37,10 +38,21 @@ final class DelegationServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->delegationRepository = Mockery::mock(DelegationRepositoryInterface::class);
-        $this->roleRepository = Mockery::mock(RoleRepositoryInterface::class);
-        $this->permissionRepository = Mockery::mock(PermissionRepositoryInterface::class);
-        $this->audit = Mockery::mock(DelegationAuditInterface::class);
+        /** @var MockInterface&DelegationRepositoryInterface $delegationRepo */
+        $delegationRepo = Mockery::mock(DelegationRepositoryInterface::class);
+        $this->delegationRepository = $delegationRepo;
+
+        /** @var MockInterface&RoleRepositoryInterface $roleRepo */
+        $roleRepo = Mockery::mock(RoleRepositoryInterface::class);
+        $this->roleRepository = $roleRepo;
+
+        /** @var MockInterface&PermissionRepositoryInterface $permissionRepo */
+        $permissionRepo = Mockery::mock(PermissionRepositoryInterface::class);
+        $this->permissionRepository = $permissionRepo;
+
+        /** @var MockInterface&DelegationAuditInterface $audit */
+        $audit = Mockery::mock(DelegationAuditInterface::class);
+        $this->audit = $audit;
 
         $this->service = new DelegationService(
             delegationRepository: $this->delegationRepository,
@@ -537,6 +549,17 @@ final class DelegationServiceTest extends TestCase
             assignablePermissionIds: [3, 4],
         );
 
+        // getDelegationScope is called internally to get old scope for audit
+        $this->delegationRepository
+            ->shouldReceive('getAssignableRoles')
+            ->with($user)
+            ->andReturn(collect([]));
+
+        $this->delegationRepository
+            ->shouldReceive('getAssignablePermissions')
+            ->with($user)
+            ->andReturn(collect([]));
+
         $this->delegationRepository
             ->shouldReceive('updateDelegationSettings')
             ->with($user, true, 10)
@@ -551,6 +574,11 @@ final class DelegationServiceTest extends TestCase
             ->shouldReceive('syncAssignablePermissions')
             ->with($user, [3, 4])
             ->once();
+
+        // Mock DB::transaction to just execute the callback
+        \Illuminate\Support\Facades\DB::shouldReceive('transaction')
+            ->once()
+            ->andReturnUsing(fn (callable $callback) => $callback());
 
         $this->service->setDelegationScope($user, $scope);
 

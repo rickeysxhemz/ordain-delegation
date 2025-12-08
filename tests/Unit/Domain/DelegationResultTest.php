@@ -14,12 +14,16 @@ describe('DelegationResult', function (): void {
             ->and($result->errors)->toBeEmpty();
     });
 
-    it('creates success result with data', function (): void {
-        $result = DelegationResult::success('Created', ['id' => 123]);
+    it('creates success result with target user', function (): void {
+        $result = DelegationResult::success(
+            message: 'Created',
+            targetUserId: 123,
+            delegatorUserId: 1,
+        );
 
         expect($result->isSuccess())->toBeTrue()
-            ->and($result->getData('id'))->toBe(123)
-            ->and($result->getData('missing', 'default'))->toBe('default');
+            ->and($result->targetUserId)->toBe(123)
+            ->and($result->delegatorUserId)->toBe(1);
     });
 
     it('creates failure result', function (): void {
@@ -52,14 +56,32 @@ describe('DelegationResult', function (): void {
             ->and($result->getError('name'))->toBe('Name is required');
     });
 
-    it('converts to array', function (): void {
-        $result = DelegationResult::success('Done', ['key' => 'value']);
+    it('creates role assigned result', function (): void {
+        $result = DelegationResult::roleAssigned(42, 1, 'admin');
 
-        expect($result->toArray())->toBe([
-            'success' => true,
-            'message' => 'Done',
-            'data' => ['key' => 'value'],
-            'errors' => [],
-        ]);
+        expect($result->isSuccess())->toBeTrue()
+            ->and($result->targetUserId)->toBe(42)
+            ->and($result->delegatorUserId)->toBe(1)
+            ->and($result->roleName)->toBe('admin');
+    });
+
+    it('creates permission granted result', function (): void {
+        $result = DelegationResult::permissionGranted(42, 1, 'edit-posts');
+
+        expect($result->isSuccess())->toBeTrue()
+            ->and($result->targetUserId)->toBe(42)
+            ->and($result->permissionName)->toBe('edit-posts');
+    });
+
+    it('converts to array', function (): void {
+        $result = DelegationResult::roleAssigned(42, 1, 'admin');
+
+        $array = $result->toArray();
+
+        expect($array['success'])->toBeTrue()
+            ->and($array['target_user_id'])->toBe(42)
+            ->and($array['delegator_user_id'])->toBe(1)
+            ->and($array['role_name'])->toBe('admin')
+            ->and($array['errors'])->toBeEmpty();
     });
 });

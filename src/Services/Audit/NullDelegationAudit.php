@@ -14,7 +14,7 @@ use Ordain\Delegation\Contracts\RoleInterface;
  *
  * Use this when audit logging is disabled.
  */
-final class NullDelegationAudit implements DelegationAuditInterface
+final readonly class NullDelegationAudit implements DelegationAuditInterface
 {
     public function logRoleAssigned(
         DelegatableUserInterface $delegator,

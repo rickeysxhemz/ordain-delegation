@@ -16,10 +16,10 @@ use Ordain\Delegation\Domain\Enums\DelegationAction;
  *
  * Writes delegation events to Laravel's logging system.
  */
-final class LogDelegationAudit implements DelegationAuditInterface
+final readonly class LogDelegationAudit implements DelegationAuditInterface
 {
     public function __construct(
-        private readonly string $channel = 'stack',
+        private string $channel = 'stack',
     ) {}
 
     public function logRoleAssigned(

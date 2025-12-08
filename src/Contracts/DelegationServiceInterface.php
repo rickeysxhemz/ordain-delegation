@@ -6,6 +6,7 @@ namespace Ordain\Delegation\Contracts;
 
 use Illuminate\Support\Collection;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
+use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 
 /**
  * Main service interface for permission delegation operations.
@@ -56,6 +57,18 @@ interface DelegationServiceInterface
     public function canCreateUsers(DelegatableUserInterface $delegator): bool;
 
     /**
+     * Atomically check and reserve quota for user creation.
+     *
+     * @param  callable(): DelegatableUserInterface  $callback
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function withQuotaLock(
+        DelegatableUserInterface $delegator,
+        callable $callback,
+    ): DelegatableUserInterface;
+
+    /**
      * Check if a delegator has reached their user creation limit.
      */
     public function hasReachedUserLimit(DelegatableUserInterface $delegator): bool;
@@ -99,7 +112,7 @@ interface DelegationServiceInterface
     /**
      * Assign a role through delegation (with validation).
      *
-     * @throws \Ordain\Delegation\Exceptions\UnauthorizedDelegationException
+     * @throws UnauthorizedDelegationException
      */
     public function delegateRole(
         DelegatableUserInterface $delegator,
@@ -110,7 +123,7 @@ interface DelegationServiceInterface
     /**
      * Grant a permission through delegation (with validation).
      *
-     * @throws \Ordain\Delegation\Exceptions\UnauthorizedDelegationException
+     * @throws UnauthorizedDelegationException
      */
     public function delegatePermission(
         DelegatableUserInterface $delegator,
@@ -121,7 +134,7 @@ interface DelegationServiceInterface
     /**
      * Revoke a role through delegation (with validation).
      *
-     * @throws \Ordain\Delegation\Exceptions\UnauthorizedDelegationException
+     * @throws UnauthorizedDelegationException
      */
     public function revokeRole(
         DelegatableUserInterface $delegator,
@@ -132,7 +145,7 @@ interface DelegationServiceInterface
     /**
      * Revoke a permission through delegation (with validation).
      *
-     * @throws \Ordain\Delegation\Exceptions\UnauthorizedDelegationException
+     * @throws UnauthorizedDelegationException
      */
     public function revokePermission(
         DelegatableUserInterface $delegator,

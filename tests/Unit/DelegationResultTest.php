@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Domain\ValueObjects\DelegationResult;
+use Ordain\Delegation\Domain\ValueObjects\DelegationResult;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -19,21 +19,22 @@ final class DelegationResultTest extends TestCase
         $this->assertTrue($result->isSuccess());
         $this->assertFalse($result->isFailure());
         $this->assertNull($result->message);
-        $this->assertEmpty($result->data);
         $this->assertEmpty($result->errors);
     }
 
     #[Test]
-    public function success_with_message_and_data(): void
+    public function success_with_message_and_target(): void
     {
         $result = DelegationResult::success(
             message: 'Role assigned successfully.',
-            data: ['role_id' => 1, 'user_id' => 42],
+            targetUserId: 42,
+            delegatorUserId: 1,
         );
 
         $this->assertTrue($result->isSuccess());
         $this->assertSame('Role assigned successfully.', $result->message);
-        $this->assertSame(['role_id' => 1, 'user_id' => 42], $result->data);
+        $this->assertSame(42, $result->targetUserId);
+        $this->assertSame(1, $result->delegatorUserId);
     }
 
     #[Test]
@@ -45,7 +46,6 @@ final class DelegationResultTest extends TestCase
         $this->assertFalse($result->isSuccess());
         $this->assertTrue($result->isFailure());
         $this->assertSame('Operation failed.', $result->message);
-        $this->assertEmpty($result->data);
     }
 
     #[Test]
@@ -103,42 +103,62 @@ final class DelegationResultTest extends TestCase
     }
 
     #[Test]
-    public function get_data_returns_specific_data(): void
+    public function role_assigned_creates_correct_result(): void
     {
-        $result = DelegationResult::success(
-            data: ['user_id' => 42, 'role' => 'admin'],
-        );
+        $result = DelegationResult::roleAssigned(42, 1, 'admin');
 
-        $this->assertSame(42, $result->getData('user_id'));
-        $this->assertSame('admin', $result->getData('role'));
-        $this->assertNull($result->getData('nonexistent'));
+        $this->assertTrue($result->isSuccess());
+        $this->assertSame(42, $result->targetUserId);
+        $this->assertSame(1, $result->delegatorUserId);
+        $this->assertSame('admin', $result->roleName);
+        $this->assertStringContainsString('admin', $result->message ?? '');
     }
 
     #[Test]
-    public function get_data_returns_default_when_key_missing(): void
+    public function role_revoked_creates_correct_result(): void
     {
-        $result = DelegationResult::success();
+        $result = DelegationResult::roleRevoked(42, 1, 'admin');
 
-        $this->assertSame('default_value', $result->getData('missing', 'default_value'));
-        $this->assertSame(100, $result->getData('missing', 100));
+        $this->assertTrue($result->isSuccess());
+        $this->assertSame(42, $result->targetUserId);
+        $this->assertSame(1, $result->delegatorUserId);
+        $this->assertSame('admin', $result->roleName);
+    }
+
+    #[Test]
+    public function permission_granted_creates_correct_result(): void
+    {
+        $result = DelegationResult::permissionGranted(42, 1, 'edit-posts');
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertSame(42, $result->targetUserId);
+        $this->assertSame(1, $result->delegatorUserId);
+        $this->assertSame('edit-posts', $result->permissionName);
+    }
+
+    #[Test]
+    public function permission_revoked_creates_correct_result(): void
+    {
+        $result = DelegationResult::permissionRevoked(42, 1, 'edit-posts');
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertSame(42, $result->targetUserId);
+        $this->assertSame(1, $result->delegatorUserId);
+        $this->assertSame('edit-posts', $result->permissionName);
     }
 
     #[Test]
     public function to_array_returns_correct_structure(): void
     {
-        $result = DelegationResult::success(
-            message: 'Done.',
-            data: ['id' => 1],
-        );
+        $result = DelegationResult::roleAssigned(42, 1, 'admin');
 
         $array = $result->toArray();
 
-        $this->assertSame([
-            'success' => true,
-            'message' => 'Done.',
-            'data' => ['id' => 1],
-            'errors' => [],
-        ], $array);
+        $this->assertTrue($array['success']);
+        $this->assertSame(42, $array['target_user_id']);
+        $this->assertSame(1, $array['delegator_user_id']);
+        $this->assertSame('admin', $array['role_name']);
+        $this->assertEmpty($array['errors']);
     }
 
     #[Test]
@@ -151,11 +171,26 @@ final class DelegationResultTest extends TestCase
 
         $array = $result->toArray();
 
-        $this->assertSame([
-            'success' => false,
-            'message' => 'Failed.',
-            'data' => [],
-            'errors' => ['field' => 'Error message.'],
-        ], $array);
+        $this->assertFalse($array['success']);
+        $this->assertSame('Failed.', $array['message']);
+        $this->assertSame(['field' => 'Error message.'], $array['errors']);
+    }
+
+    #[Test]
+    public function equals_returns_true_for_identical_results(): void
+    {
+        $result1 = DelegationResult::roleAssigned(42, 1, 'admin');
+        $result2 = DelegationResult::roleAssigned(42, 1, 'admin');
+
+        $this->assertTrue($result1->equals($result2));
+    }
+
+    #[Test]
+    public function equals_returns_false_for_different_results(): void
+    {
+        $result1 = DelegationResult::roleAssigned(42, 1, 'admin');
+        $result2 = DelegationResult::roleAssigned(42, 1, 'editor');
+
+        $this->assertFalse($result1->equals($result2));
     }
 }

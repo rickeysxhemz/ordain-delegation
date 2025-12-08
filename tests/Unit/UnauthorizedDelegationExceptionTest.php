@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Contracts\DelegatableUserInterface;
-use Ewaa\PermissionDelegation\Exceptions\UnauthorizedDelegationException;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

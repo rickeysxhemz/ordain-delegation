@@ -75,19 +75,22 @@ final class DelegationServiceProvider extends ServiceProvider
 
     /**
      * Register repository bindings.
+     *
+     * Using scoped bindings for Octane compatibility - instances are
+     * automatically cleared between requests in long-running processes.
      */
     private function registerRepositories(): void
     {
-        $this->app->singleton(DelegationRepositoryInterface::class, static fn (): EloquentDelegationRepository => new EloquentDelegationRepository);
+        $this->app->scoped(DelegationRepositoryInterface::class, static fn (): EloquentDelegationRepository => new EloquentDelegationRepository);
 
-        $this->app->singleton(RoleRepositoryInterface::class, static function (): SpatieRoleRepository {
+        $this->app->scoped(RoleRepositoryInterface::class, static function (): SpatieRoleRepository {
             /** @var string $roleModel */
             $roleModel = config('permission-delegation.role_model');
 
             return new SpatieRoleRepository($roleModel);
         });
 
-        $this->app->singleton(PermissionRepositoryInterface::class, static function (): SpatiePermissionRepository {
+        $this->app->scoped(PermissionRepositoryInterface::class, static function (): SpatiePermissionRepository {
             /** @var string $permissionModel */
             $permissionModel = config('permission-delegation.permission_model');
 
@@ -97,10 +100,12 @@ final class DelegationServiceProvider extends ServiceProvider
 
     /**
      * Register audit service based on configuration.
+     *
+     * Using scoped binding for Octane compatibility.
      */
     private function registerAuditService(): void
     {
-        $this->app->singleton(DelegationAuditInterface::class, function (): DelegationAuditInterface {
+        $this->app->scoped(DelegationAuditInterface::class, function (): DelegationAuditInterface {
             if (! config('permission-delegation.audit.enabled', true)) {
                 return new NullDelegationAudit;
             }
@@ -121,10 +126,12 @@ final class DelegationServiceProvider extends ServiceProvider
 
     /**
      * Register the main delegation service.
+     *
+     * Using scoped binding for Octane compatibility.
      */
     private function registerDelegationService(): void
     {
-        $this->app->singleton(DelegationServiceInterface::class, function (): DelegationServiceInterface {
+        $this->app->scoped(DelegationServiceInterface::class, function (): DelegationServiceInterface {
             $service = new DelegationService(
                 delegationRepository: $this->app->make(DelegationRepositoryInterface::class),
                 roleRepository: $this->app->make(RoleRepositoryInterface::class),

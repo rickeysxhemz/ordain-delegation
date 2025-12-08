@@ -49,6 +49,8 @@ interface DelegationAuditInterface
 
     /**
      * Log a delegation scope change.
+     *
+     * @param  array{old: array<string, bool|int|array<int|string>|null>, new: array<string, bool|int|array<int|string>|null>}  $changes
      */
     public function logDelegationScopeChanged(
         DelegatableUserInterface $admin,
@@ -58,6 +60,8 @@ interface DelegationAuditInterface
 
     /**
      * Log an unauthorized delegation attempt.
+     *
+     * @param  array<string, int|string>  $context
      */
     public function logUnauthorizedAttempt(
         DelegatableUserInterface $delegator,

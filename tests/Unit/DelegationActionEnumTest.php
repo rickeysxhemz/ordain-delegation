@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Domain\Enums\DelegationAction;
+use Ordain\Delegation\Domain\Enums\DelegationAction;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

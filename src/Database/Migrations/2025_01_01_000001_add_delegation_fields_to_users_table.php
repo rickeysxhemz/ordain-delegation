@@ -13,6 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        /** @var class-string<\Illuminate\Database\Eloquent\Model> $usersTable */
         $usersTable = config('permission-delegation.user_model', 'App\\Models\\User');
         $tableName = (new $usersTable)->getTable();
 
@@ -49,6 +50,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        /** @var class-string<\Illuminate\Database\Eloquent\Model> $usersTable */
         $usersTable = config('permission-delegation.user_model', 'App\\Models\\User');
         $tableName = (new $usersTable)->getTable();
 

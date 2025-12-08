@@ -26,6 +26,7 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
 
             // Get users table name dynamically
+            /** @var class-string<\Illuminate\Database\Eloquent\Model> $usersTable */
             $usersTable = config('permission-delegation.user_model', 'App\\Models\\User');
             $usersTableName = (new $usersTable)->getTable();
 

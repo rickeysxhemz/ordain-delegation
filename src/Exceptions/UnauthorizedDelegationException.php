@@ -9,12 +9,15 @@ use Ordain\Delegation\Contracts\DelegatableUserInterface;
 /**
  * Exception thrown when a user attempts an unauthorized delegation.
  */
-class UnauthorizedDelegationException extends DelegationException
+final class UnauthorizedDelegationException extends DelegationException
 {
-    public function __construct(
+    /**
+     * @param  array<string, string|int|bool|null>  $context
+     */
+    private function __construct(
         string $message,
-        protected ?DelegatableUserInterface $delegator = null,
-        protected ?string $attemptedAction = null,
+        private readonly ?DelegatableUserInterface $delegator = null,
+        private readonly ?string $attemptedAction = null,
         array $context = [],
     ) {
         parent::__construct($message, $context);
@@ -28,7 +31,7 @@ class UnauthorizedDelegationException extends DelegationException
         string $roleName,
     ): self {
         return new self(
-            message: "User is not authorized to assign role '{$roleName}'.",
+            message: "User is not authorized to assign role '$roleName'.",
             delegator: $delegator,
             attemptedAction: 'assign_role',
             context: ['role' => $roleName],
@@ -43,7 +46,7 @@ class UnauthorizedDelegationException extends DelegationException
         string $permissionName,
     ): self {
         return new self(
-            message: "User is not authorized to grant permission '{$permissionName}'.",
+            message: "User is not authorized to grant permission '$permissionName'.",
             delegator: $delegator,
             attemptedAction: 'grant_permission',
             context: ['permission' => $permissionName],
@@ -58,7 +61,7 @@ class UnauthorizedDelegationException extends DelegationException
         string $roleName,
     ): self {
         return new self(
-            message: "User is not authorized to revoke role '{$roleName}'.",
+            message: "User is not authorized to revoke role '$roleName'.",
             delegator: $delegator,
             attemptedAction: 'revoke_role',
             context: ['role' => $roleName],
@@ -73,7 +76,7 @@ class UnauthorizedDelegationException extends DelegationException
         string $permissionName,
     ): self {
         return new self(
-            message: "User is not authorized to revoke permission '{$permissionName}'.",
+            message: "User is not authorized to revoke permission '$permissionName'.",
             delegator: $delegator,
             attemptedAction: 'revoke_permission',
             context: ['permission' => $permissionName],
@@ -100,7 +103,7 @@ class UnauthorizedDelegationException extends DelegationException
         int $limit,
     ): self {
         return new self(
-            message: "User has reached their limit of {$limit} manageable users.",
+            message: "User has reached their limit of $limit manageable users.",
             delegator: $delegator,
             attemptedAction: 'create_user',
             context: ['limit' => $limit],

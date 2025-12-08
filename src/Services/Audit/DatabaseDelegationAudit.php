@@ -16,7 +16,7 @@ use Ordain\Delegation\Domain\Enums\DelegationAction;
  *
  * Stores delegation events in a database table for querying and reporting.
  */
-final class DatabaseDelegationAudit implements DelegationAuditInterface
+final readonly class DatabaseDelegationAudit implements DelegationAuditInterface
 {
     public function logRoleAssigned(
         DelegatableUserInterface $delegator,
@@ -67,9 +67,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
         DelegatableUserInterface $user,
         array $changes,
     ): void {
-        $this->log(DelegationAction::SCOPE_UPDATED, $admin, $user, [
-            'changes' => $changes,
-        ]);
+        $this->log(DelegationAction::SCOPE_UPDATED, $admin, $user, $changes);
     }
 
     public function logUnauthorizedAttempt(
@@ -90,7 +88,7 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
     }
 
     /**
-     * @param  array<string, mixed>  $metadata
+     * @param  array<string, int|string|array<string, int|string|bool|array<int|string>|null>>  $metadata
      */
     private function log(
         DelegationAction $action,
@@ -105,9 +103,9 @@ final class DatabaseDelegationAudit implements DelegationAuditInterface
             'action' => $action->value,
             'performed_by_id' => $performedBy->getDelegatableIdentifier(),
             'target_user_id' => $targetUser?->getDelegatableIdentifier(),
-            'metadata' => json_encode($metadata),
-            'ip_address' => $request?->ip() ?? 'cli',
-            'user_agent' => $request?->userAgent() ?? 'cli',
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'ip_address' => $request->ip() ?? 'cli',
+            'user_agent' => $request->userAgent() ?? 'cli',
             'created_at' => now(),
         ]);
     }

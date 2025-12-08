@@ -12,16 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Middleware to check if the authenticated user can manage a target user.
- *
- * Usage in routes:
- *   Route::middleware('can.manage.user')->group(function () {
- *       Route::put('/users/{user}', [UserController::class, 'update']);
- *       Route::delete('/users/{user}', [UserController::class, 'destroy']);
- *   });
- *
- * The target user is resolved from the route parameter 'user' by default.
- * You can specify a custom parameter name:
- *   Route::middleware('can.manage.user:target_user')->put('/transfer/{target_user}', ...);
  */
 final readonly class CanManageUserMiddleware
 {
@@ -38,6 +28,10 @@ final readonly class CanManageUserMiddleware
     public function handle(Request $request, Closure $next, string $routeParameter = 'user'): Response
     {
         $delegator = $request->user();
+
+        if ($delegator === null) {
+            abort(401, 'Unauthenticated.');
+        }
 
         if (! $delegator instanceof DelegatableUserInterface) {
             abort(403, 'User model does not support delegation.');

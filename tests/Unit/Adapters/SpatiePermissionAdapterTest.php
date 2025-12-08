@@ -61,10 +61,18 @@ describe('SpatiePermissionAdapter', function (): void {
         $permissions = new Collection([$this->mockPermission, $mockPermission2]);
         $adapters = SpatiePermissionAdapter::collection($permissions);
 
-        expect($adapters)->toHaveCount(2)
-            ->and($adapters->first())->toBeInstanceOf(SpatiePermissionAdapter::class)
-            ->and($adapters->first()->getPermissionName())->toBe('create-posts')
-            ->and($adapters->last()->getPermissionName())->toBe('edit-posts');
+        expect($adapters)->toHaveCount(2);
+
+        $first = $adapters->first();
+        $last = $adapters->last();
+
+        expect($first)->toBeInstanceOf(SpatiePermissionAdapter::class);
+        expect($last)->toBeInstanceOf(SpatiePermissionAdapter::class);
+
+        if ($first instanceof SpatiePermissionAdapter && $last instanceof SpatiePermissionAdapter) {
+            expect($first->getPermissionName())->toBe('create-posts')
+                ->and($last->getPermissionName())->toBe('edit-posts');
+        }
     });
 
     it('checks equality correctly', function (): void {

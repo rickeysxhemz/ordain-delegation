@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Ewaa\PermissionDelegation\Tests\Unit;
+namespace Ordain\Delegation\Tests\Unit;
 
-use Ewaa\PermissionDelegation\Domain\ValueObjects\DelegationScope;
 use InvalidArgumentException;
+use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
