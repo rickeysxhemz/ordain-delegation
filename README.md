@@ -6,7 +6,7 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
 [![License](https://img.shields.io/packagist/l/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
 
-A hierarchical permission delegation system for Laravel 11/12 applications. Control who can assign roles and permissions to whom.
+Scoped authority delegation for Laravel. Enforces hierarchical permission boundaries where authority flows downward—users delegate subsets of their own grants, never more. Native escalation prevention with spatie/laravel-permission integration.
 
 ## Features
 
@@ -191,6 +191,7 @@ protected $listen = [
 
 ## Documentation
 
+- [Core Concepts](docs/concepts.md)
 - [Installation](docs/installation.md)
 - [Configuration](docs/configuration.md)
 - [Usage](docs/usage.md)

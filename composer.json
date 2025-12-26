@@ -1,6 +1,6 @@
 {
     "name": "ordain/delegation",
-    "description": "A hierarchical permission delegation system for Laravel - control who can assign roles and permissions to whom",
+    "description": "Scoped authority delegation for Laravel with native escalation prevention",
     "type": "library",
     "license": "MIT",
     "keywords": [
