@@ -734,57 +734,6 @@ final class DelegationServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    private function createMockUser(
-        int $id,
-        bool $canManageUsers = false,
-        ?int $maxUsers = null,
-    ): DelegatableUserInterface {
-        $user = Mockery::mock(DelegatableUserInterface::class);
-        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
-        $user->shouldReceive('canManageUsers')->andReturn($canManageUsers);
-        $user->shouldReceive('getMaxManageableUsers')->andReturn($maxUsers);
-
-        return $user;
-    }
-
-    private function createMockUserWithCreator(int $id, ?int $creatorId): DelegatableUserInterface
-    {
-        $user = Mockery::mock(DelegatableUserInterface::class);
-        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
-        $user->shouldReceive('canManageUsers')->andReturn(false);
-        $user->shouldReceive('getMaxManageableUsers')->andReturn(null);
-
-        if ($creatorId !== null) {
-            $creator = Mockery::mock(DelegatableUserInterface::class);
-            $creator->shouldReceive('getDelegatableIdentifier')->andReturn($creatorId);
-            $user->creator = $creator;
-        } else {
-            $user->creator = null;
-        }
-
-        return $user;
-    }
-
-    private function createMockRole(int $id, string $name): RoleInterface
-    {
-        $role = Mockery::mock(RoleInterface::class);
-        $role->shouldReceive('getRoleIdentifier')->andReturn($id);
-        $role->shouldReceive('getRoleName')->andReturn($name);
-        $role->shouldReceive('getRoleGuard')->andReturn('web');
-
-        return $role;
-    }
-
-    private function createMockPermission(int $id, string $name): PermissionInterface
-    {
-        $permission = Mockery::mock(PermissionInterface::class);
-        $permission->shouldReceive('getPermissionIdentifier')->andReturn($id);
-        $permission->shouldReceive('getPermissionName')->andReturn($name);
-        $permission->shouldReceive('getPermissionGuard')->andReturn('web');
-
-        return $permission;
-    }
-
     #[Test]
     public function delegate_permission_throws_exception_when_not_authorized(): void
     {
@@ -1191,5 +1140,56 @@ final class DelegationServiceTest extends TestCase
         $result = $service->canAssignRole($delegator, $role);
 
         $this->assertFalse($result);
+    }
+
+    private function createMockUser(
+        int $id,
+        bool $canManageUsers = false,
+        ?int $maxUsers = null,
+    ): DelegatableUserInterface {
+        $user = Mockery::mock(DelegatableUserInterface::class);
+        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
+        $user->shouldReceive('canManageUsers')->andReturn($canManageUsers);
+        $user->shouldReceive('getMaxManageableUsers')->andReturn($maxUsers);
+
+        return $user;
+    }
+
+    private function createMockUserWithCreator(int $id, ?int $creatorId): DelegatableUserInterface
+    {
+        $user = Mockery::mock(DelegatableUserInterface::class);
+        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
+        $user->shouldReceive('canManageUsers')->andReturn(false);
+        $user->shouldReceive('getMaxManageableUsers')->andReturn(null);
+
+        if ($creatorId !== null) {
+            $creator = Mockery::mock(DelegatableUserInterface::class);
+            $creator->shouldReceive('getDelegatableIdentifier')->andReturn($creatorId);
+            $user->creator = $creator;
+        } else {
+            $user->creator = null;
+        }
+
+        return $user;
+    }
+
+    private function createMockRole(int $id, string $name): RoleInterface
+    {
+        $role = Mockery::mock(RoleInterface::class);
+        $role->shouldReceive('getRoleIdentifier')->andReturn($id);
+        $role->shouldReceive('getRoleName')->andReturn($name);
+        $role->shouldReceive('getRoleGuard')->andReturn('web');
+
+        return $role;
+    }
+
+    private function createMockPermission(int $id, string $name): PermissionInterface
+    {
+        $permission = Mockery::mock(PermissionInterface::class);
+        $permission->shouldReceive('getPermissionIdentifier')->andReturn($id);
+        $permission->shouldReceive('getPermissionName')->andReturn($name);
+        $permission->shouldReceive('getPermissionGuard')->andReturn('web');
+
+        return $permission;
     }
 }
