@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Traits;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,7 +18,7 @@ use Ordain\Delegation\Contracts\RoleInterface;
  *
  * Add this trait to your User model and implement DelegatableUserInterface.
  *
- * @mixin \Illuminate\Database\Eloquent\Model
+ * @mixin Model
  */
 trait HasDelegation
 {
