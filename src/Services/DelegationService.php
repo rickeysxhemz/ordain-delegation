@@ -15,6 +15,11 @@ use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
+use Ordain\Delegation\Events\DelegationScopeUpdated;
+use Ordain\Delegation\Events\PermissionGranted;
+use Ordain\Delegation\Events\PermissionRevoked;
+use Ordain\Delegation\Events\RoleDelegated;
+use Ordain\Delegation\Events\RoleRevoked;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 
 /**
@@ -32,6 +37,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         private ?DelegationAuditInterface $audit = null,
         private bool $superAdminBypassEnabled = true,
         private ?string $superAdminIdentifier = null,
+        private bool $eventsEnabled = false,
     ) {}
 
     public function canAssignRole(
@@ -200,11 +206,15 @@ final readonly class DelegationService implements DelegationServiceInterface
             $this->delegationRepository->syncAssignablePermissions($user, $scope->assignablePermissionIds);
         });
 
-        if ($admin !== null && ! $oldScope->equals($scope)) {
-            $this->audit?->logDelegationScopeChanged($admin, $user, [
-                'old' => $oldScope->toArray(),
-                'new' => $scope->toArray(),
-            ]);
+        if (! $oldScope->equals($scope)) {
+            if ($admin !== null) {
+                $this->audit?->logDelegationScopeChanged($admin, $user, [
+                    'old' => $oldScope->toArray(),
+                    'new' => $scope->toArray(),
+                ]);
+            }
+
+            $this->dispatchEvent(new DelegationScopeUpdated($user, $oldScope, $scope, $admin));
         }
     }
 
@@ -237,6 +247,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->assignToUser($target, $role);
         $this->audit?->logRoleAssigned($delegator, $target, $role);
+        $this->dispatchEvent(new RoleDelegated($delegator, $target, $role));
     }
 
     public function delegatePermission(
@@ -255,6 +266,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->assignToUser($target, $permission);
         $this->audit?->logPermissionGranted($delegator, $target, $permission);
+        $this->dispatchEvent(new PermissionGranted($delegator, $target, $permission));
     }
 
     public function revokeRole(
@@ -273,6 +285,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->removeFromUser($target, $role);
         $this->audit?->logRoleRevoked($delegator, $target, $role);
+        $this->dispatchEvent(new RoleRevoked($delegator, $target, $role));
     }
 
     public function revokePermission(
@@ -291,6 +304,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->removeFromUser($target, $permission);
         $this->audit?->logPermissionRevoked($delegator, $target, $permission);
+        $this->dispatchEvent(new PermissionRevoked($delegator, $target, $permission));
     }
 
     public function canManageUser(
@@ -336,8 +350,13 @@ final readonly class DelegationService implements DelegationServiceInterface
             $errors['target'] = 'You are not authorized to manage this user.';
         }
 
+        // Batch load all roles at once to avoid N+1 queries
+        $roleMap = $this->roleRepository->findByIds($roles)->keyBy(
+            fn (RoleInterface $r): int|string => $r->getRoleIdentifier(),
+        );
+
         foreach ($roles as $roleId) {
-            $role = $this->roleRepository->findById($roleId);
+            $role = $roleMap->get($roleId);
             if ($role === null) {
                 $errors["role_{$roleId}"] = "Role with ID {$roleId} not found.";
 
@@ -349,8 +368,13 @@ final readonly class DelegationService implements DelegationServiceInterface
             }
         }
 
+        // Batch load all permissions at once to avoid N+1 queries
+        $permissionMap = $this->permissionRepository->findByIds($permissions)->keyBy(
+            fn (PermissionInterface $p): int|string => $p->getPermissionIdentifier(),
+        );
+
         foreach ($permissions as $permissionId) {
-            $permission = $this->permissionRepository->findById($permissionId);
+            $permission = $permissionMap->get($permissionId);
             if ($permission === null) {
                 $errors["permission_{$permissionId}"] = "Permission with ID {$permissionId} not found.";
 
@@ -391,5 +415,15 @@ final readonly class DelegationService implements DelegationServiceInterface
 
             return false;
         });
+    }
+
+    /**
+     * Dispatch an event if events are enabled.
+     */
+    private function dispatchEvent(object $event): void
+    {
+        if ($this->eventsEnabled) {
+            event($event);
+        }
     }
 }

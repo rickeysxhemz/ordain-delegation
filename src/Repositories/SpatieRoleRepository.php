@@ -35,6 +35,21 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
         return SpatieRoleAdapter::fromModel($role);
     }
 
+    /**
+     * @param  array<int|string>  $ids
+     * @return Collection<int, RoleInterface>
+     */
+    public function findByIds(array $ids): Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return SpatieRoleAdapter::collection(
+            $this->roleModelClass::whereIn('id', $ids)->get(),
+        );
+    }
+
     public function findByName(string $name, ?string $guard = null): ?RoleInterface
     {
         $query = $this->roleModelClass::where('name', $name);

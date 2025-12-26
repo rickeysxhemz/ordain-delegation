@@ -35,6 +35,21 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
         return SpatiePermissionAdapter::fromModel($permission);
     }
 
+    /**
+     * @param  array<int|string>  $ids
+     * @return Collection<int, PermissionInterface>
+     */
+    public function findByIds(array $ids): Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return SpatiePermissionAdapter::collection(
+            $this->permissionModelClass::whereIn('id', $ids)->get(),
+        );
+    }
+
     public function findByName(string $name, ?string $guard = null): ?PermissionInterface
     {
         $query = $this->permissionModelClass::where('name', $name);

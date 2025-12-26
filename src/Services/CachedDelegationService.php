@@ -150,6 +150,7 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     ): void {
         $this->inner->delegateRole($delegator, $target, $role);
         $this->forgetUserCache($target);
+        $this->forgetRoleCache($delegator, $role);
     }
 
     public function delegatePermission(
@@ -159,6 +160,7 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     ): void {
         $this->inner->delegatePermission($delegator, $target, $permission);
         $this->forgetUserCache($target);
+        $this->forgetPermissionCache($delegator, $permission);
     }
 
     public function revokeRole(
@@ -168,6 +170,7 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     ): void {
         $this->inner->revokeRole($delegator, $target, $role);
         $this->forgetUserCache($target);
+        $this->forgetRoleCache($delegator, $role);
     }
 
     public function revokePermission(
@@ -177,6 +180,7 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     ): void {
         $this->inner->revokePermission($delegator, $target, $permission);
         $this->forgetUserCache($target);
+        $this->forgetPermissionCache($delegator, $permission);
     }
 
     public function canManageUser(
@@ -215,6 +219,26 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
         foreach ($keys as $key) {
             $this->cache->forget($key);
         }
+    }
+
+    /**
+     * Clear cached role assignment status for a user.
+     */
+    private function forgetRoleCache(DelegatableUserInterface $user, RoleInterface $role): void
+    {
+        $this->cache->forget(
+            $this->cacheKey('can_assign_role', $user, (string) $role->getRoleIdentifier()),
+        );
+    }
+
+    /**
+     * Clear cached permission assignment status for a user.
+     */
+    private function forgetPermissionCache(DelegatableUserInterface $user, PermissionInterface $permission): void
+    {
+        $this->cache->forget(
+            $this->cacheKey('can_assign_perm', $user, (string) $permission->getPermissionIdentifier()),
+        );
     }
 
     /**

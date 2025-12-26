@@ -21,6 +21,14 @@ interface PermissionRepositoryInterface
     public function findById(int|string $id): ?PermissionInterface;
 
     /**
+     * Find multiple permissions by their identifiers.
+     *
+     * @param  array<int|string>  $ids
+     * @return Collection<int, PermissionInterface>
+     */
+    public function findByIds(array $ids): Collection;
+
+    /**
      * Find a permission by its name.
      */
     public function findByName(string $name, ?string $guard = null): ?PermissionInterface;

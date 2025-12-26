@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Providers;
 
 use Illuminate\Routing\Router;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Ordain\Delegation\Commands\AssignRoleCommand;
+use Ordain\Delegation\Commands\CacheResetCommand;
+use Ordain\Delegation\Commands\ShowDelegationCommand;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
@@ -54,6 +59,8 @@ final class DelegationServiceProvider extends ServiceProvider
         $this->publishMigrations();
         $this->registerMiddleware();
         $this->registerBladeDirectives();
+        $this->registerCommands();
+        $this->registerRouteMacros();
     }
 
     /**
@@ -139,6 +146,7 @@ final class DelegationServiceProvider extends ServiceProvider
                 audit: $this->app->make(DelegationAuditInterface::class),
                 superAdminBypassEnabled: (bool) config('permission-delegation.super_admin.enabled', true),
                 superAdminIdentifier: config('permission-delegation.super_admin.role'),
+                eventsEnabled: (bool) config('permission-delegation.events.enabled', true),
             );
 
             if (config('permission-delegation.cache.enabled', true)) {
@@ -229,5 +237,53 @@ final class DelegationServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../Database/Migrations/' => database_path('migrations'),
         ], 'delegation-migrations');
+    }
+
+    /**
+     * Register Artisan commands.
+     */
+    private function registerCommands(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ShowDelegationCommand::class,
+                AssignRoleCommand::class,
+                CacheResetCommand::class,
+            ]);
+        }
+    }
+
+    /**
+     * Register Route macros for delegation.
+     */
+    private function registerRouteMacros(): void
+    {
+        /**
+         * Apply can.delegate middleware to the route.
+         */
+        Route::macro('canDelegate', function (): mixed {
+            /** @phpstan-ignore-next-line */
+            return $this->middleware('can.delegate');
+        });
+
+        /**
+         * Apply can.assign.role middleware to the route.
+         *
+         * @param  string|array<string>  $roles
+         */
+        Route::macro('canAssignRole', function (string|array $roles): mixed {
+            $rolesString = implode(',', Arr::wrap($roles));
+
+            /** @phpstan-ignore-next-line */
+            return $this->middleware("can.assign.role:{$rolesString}");
+        });
+
+        /**
+         * Apply can.manage.user middleware to the route.
+         */
+        Route::macro('canManageUser', function (?string $userParameter = 'user'): mixed {
+            /** @phpstan-ignore-next-line */
+            return $this->middleware("can.manage.user:{$userParameter}");
+        });
     }
 }

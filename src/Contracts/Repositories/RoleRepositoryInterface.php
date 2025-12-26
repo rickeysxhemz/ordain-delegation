@@ -21,6 +21,14 @@ interface RoleRepositoryInterface
     public function findById(int|string $id): ?RoleInterface;
 
     /**
+     * Find multiple roles by their identifiers.
+     *
+     * @param  array<int|string>  $ids
+     * @return Collection<int, RoleInterface>
+     */
+    public function findByIds(array $ids): Collection;
+
+    /**
      * Find a role by its name.
      */
     public function findByName(string $name, ?string $guard = null): ?RoleInterface;

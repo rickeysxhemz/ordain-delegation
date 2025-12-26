@@ -101,6 +101,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Events
+    |--------------------------------------------------------------------------
+    |
+    | Configure domain event dispatching for delegation operations.
+    |
+    */
+    'events' => [
+        /*
+        | Enable/disable event dispatching for delegation operations.
+        | When enabled, events like RoleDelegated, PermissionGranted, etc.
+        | will be dispatched.
+        */
+        'enabled' => env('DELEGATION_EVENTS_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Caching
     |--------------------------------------------------------------------------
     |

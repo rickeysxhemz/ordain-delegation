@@ -622,9 +622,14 @@ final class DelegationServiceTest extends TestCase
             ->andReturn(collect([]));
 
         $this->roleRepository
-            ->shouldReceive('findById')
-            ->with(999)
-            ->andReturn(null);
+            ->shouldReceive('findByIds')
+            ->with([999])
+            ->andReturn(collect([]));
+
+        $this->permissionRepository
+            ->shouldReceive('findByIds')
+            ->with([])
+            ->andReturn(collect([]));
 
         $errors = $this->service->validateDelegation($delegator, $target, [999], []);
 
@@ -645,9 +650,14 @@ final class DelegationServiceTest extends TestCase
             ->andReturn(collect([]));
 
         $this->roleRepository
-            ->shouldReceive('findById')
-            ->with(1)
-            ->andReturn($role);
+            ->shouldReceive('findByIds')
+            ->with([1])
+            ->andReturn(collect([$role]));
+
+        $this->permissionRepository
+            ->shouldReceive('findByIds')
+            ->with([])
+            ->andReturn(collect([]));
 
         $this->delegationRepository
             ->shouldReceive('hasAssignableRole')
@@ -674,9 +684,9 @@ final class DelegationServiceTest extends TestCase
             ->andReturn(collect([]));
 
         $this->roleRepository
-            ->shouldReceive('findById')
-            ->with(1)
-            ->andReturn($role);
+            ->shouldReceive('findByIds')
+            ->with([1])
+            ->andReturn(collect([$role]));
 
         $this->delegationRepository
             ->shouldReceive('hasAssignableRole')
@@ -684,9 +694,9 @@ final class DelegationServiceTest extends TestCase
             ->andReturn(true);
 
         $this->permissionRepository
-            ->shouldReceive('findById')
-            ->with(1)
-            ->andReturn($permission);
+            ->shouldReceive('findByIds')
+            ->with([1])
+            ->andReturn(collect([$permission]));
 
         $this->delegationRepository
             ->shouldReceive('hasAssignablePermission')

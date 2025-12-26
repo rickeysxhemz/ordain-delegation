@@ -13,6 +13,12 @@ use InvalidArgumentException;
  */
 final readonly class DelegationScope
 {
+    /** @var array<int|string> Role IDs this user can assign */
+    public array $assignableRoleIds;
+
+    /** @var array<int|string> Permission IDs this user can grant */
+    public array $assignablePermissionIds;
+
     /**
      * @param  bool  $canManageUsers  Whether the user can create/manage other users
      * @param  int|null  $maxManageableUsers  Maximum users this user can create (null = unlimited)
@@ -22,24 +28,18 @@ final readonly class DelegationScope
     public function __construct(
         public bool $canManageUsers = false,
         public ?int $maxManageableUsers = null,
-        public array $assignableRoleIds = [],
-        public array $assignablePermissionIds = [],
+        array $assignableRoleIds = [],
+        array $assignablePermissionIds = [],
     ) {
         if ($maxManageableUsers !== null && $maxManageableUsers < 0) {
             throw new InvalidArgumentException('Max manageable users cannot be negative.');
         }
 
-        foreach ($assignableRoleIds as $id) {
-            if (! is_int($id) && ! is_string($id)) {
-                throw new InvalidArgumentException('Assignable role IDs must be integers or strings.');
-            }
-        }
+        // Validate and normalize role IDs (filter invalid, remove duplicates)
+        $this->assignableRoleIds = self::normalizeIds($assignableRoleIds, 'role');
 
-        foreach ($assignablePermissionIds as $id) {
-            if (! is_int($id) && ! is_string($id)) {
-                throw new InvalidArgumentException('Assignable permission IDs must be integers or strings.');
-            }
-        }
+        // Validate and normalize permission IDs (filter invalid, remove duplicates)
+        $this->assignablePermissionIds = self::normalizeIds($assignablePermissionIds, 'permission');
     }
 
     /**
@@ -113,6 +113,41 @@ final readonly class DelegationScope
             assignableRoleIds: array_values($roleIds),
             assignablePermissionIds: array_values($permissionIds),
         );
+    }
+
+    /**
+     * Normalize an array of IDs by filtering invalid values and removing duplicates.
+     *
+     * @param  array<mixed>  $ids
+     * @return array<int|string>
+     */
+    private static function normalizeIds(array $ids, string $type): array
+    {
+        $normalized = [];
+        $seen = [];
+
+        foreach ($ids as $id) {
+            // Skip non-integer/string values
+            if (! is_int($id) && ! is_string($id)) {
+                throw new InvalidArgumentException("Assignable {$type} IDs must be integers or strings.");
+            }
+
+            // Skip empty strings
+            if ($id === '') {
+                continue;
+            }
+
+            // Skip duplicates
+            $key = is_int($id) ? "i:{$id}" : "s:{$id}";
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $normalized[] = $id;
+        }
+
+        return $normalized;
     }
 
     /**

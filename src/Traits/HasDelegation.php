@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Traits;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -149,24 +150,20 @@ trait HasDelegation
 
     /**
      * Check if this user can assign a specific role.
-     *
-     * @param  int|string|RoleInterface  $role
      */
-    public function canAssignRole(mixed $role): bool
+    public function canAssignRole(int|string|RoleInterface $role): bool
     {
-        $roleId = is_object($role) ? $role->getRoleIdentifier() : $role;
+        $roleId = $role instanceof RoleInterface ? $role->getRoleIdentifier() : $role;
 
         return $this->assignableRoles()->where('id', $roleId)->exists();
     }
 
     /**
      * Check if this user can grant a specific permission.
-     *
-     * @param  int|string|PermissionInterface  $permission
      */
-    public function canAssignPermission(mixed $permission): bool
+    public function canAssignPermission(int|string|PermissionInterface $permission): bool
     {
-        $permissionId = is_object($permission) ? $permission->getPermissionIdentifier() : $permission;
+        $permissionId = $permission instanceof PermissionInterface ? $permission->getPermissionIdentifier() : $permission;
 
         return $this->assignablePermissions()->where('id', $permissionId)->exists();
     }
@@ -229,10 +226,10 @@ trait HasDelegation
     /**
      * Scope to get users who can manage other users.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
-    public function scopeCanManageUsers($query)
+    public function scopeCanManageUsers(Builder $query): Builder
     {
         return $query->where('can_manage_users', true);
     }
@@ -240,11 +237,10 @@ trait HasDelegation
     /**
      * Scope to get users created by a specific user.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  int|string|DelegatableUserInterface  $creator
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
-    public function scopeCreatedBy($query, $creator)
+    public function scopeCreatedBy(Builder $query, int|string|DelegatableUserInterface $creator): Builder
     {
         $creatorId = $creator instanceof DelegatableUserInterface
             ? $creator->getDelegatableIdentifier()
