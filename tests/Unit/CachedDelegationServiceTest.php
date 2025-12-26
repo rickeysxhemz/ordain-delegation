@@ -7,7 +7,6 @@ namespace Ordain\Delegation\Tests\Unit;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Collection;
 use Mockery;
-use Mockery\MockInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
@@ -148,7 +147,7 @@ describe('CachedDelegationService', function (): void {
     });
 
     it('caches getAssignableRoles', function (): void {
-        $roles = new Collection();
+        $roles = new Collection;
         $this->cache->shouldReceive('remember')
             ->once()
             ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'assignable_roles'))
@@ -160,7 +159,7 @@ describe('CachedDelegationService', function (): void {
     });
 
     it('caches getAssignablePermissions', function (): void {
-        $permissions = new Collection();
+        $permissions = new Collection;
         $this->cache->shouldReceive('remember')
             ->once()
             ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'assignable_perms'))
