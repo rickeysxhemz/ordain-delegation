@@ -15,11 +15,12 @@
     ],
     "authors": [
         {
-            "name": "Ordain",
-            "email": "dev@ordain.dev"
+            "name": "Waqas Majeed",
+            "email": "dev@waqasmajeed.dev",
+            "role": "Developer"
         }
     ],
-    "homepage": "https://github.com/ordain/delegation",
+    "homepage": "https://github.com/rickeysxhemz/ordain-delegation",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0|^12.0",
@@ -30,11 +31,11 @@
     },
     "require-dev": {
         "laravel/pint": "^1.18",
+        "larastan/larastan": "^3.0",
         "mockery/mockery": "^1.6",
-        "nunomaduro/larastan": "^3.8",
         "orchestra/testbench": "^9.0|^10.0",
-        "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-laravel": "^3.0",
+        "pestphp/pest": "^3.0|^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0",
         "phpstan/phpstan": "^2.0"
     },
     "autoload": {
@@ -48,6 +49,9 @@
         }
     },
     "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        },
         "laravel": {
             "providers": [
                 "Ordain\\Delegation\\Providers\\DelegationServiceProvider"

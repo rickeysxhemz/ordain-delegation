@@ -18,6 +18,9 @@ Thumbs.db
 .phpunit.result.cache
 phpunit.xml
 
+# Static Analysis
+phpstan.neon
+
 # Build artifacts
 /build/
 *.cache

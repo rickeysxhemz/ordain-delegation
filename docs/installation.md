@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- PHP 8.2+
+- PHP 8.2, 8.3, or 8.4
 - Laravel 11.x or 12.x
 - spatie/laravel-permission ^6.0
 

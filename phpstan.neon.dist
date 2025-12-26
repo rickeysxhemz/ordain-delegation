@@ -1,0 +1,63 @@
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    tmpDir: build/phpstan
+    checkOctaneCompatibility: true
+    checkModelProperties: true
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        # Eloquent dynamic properties
+        - '#Access to an undefined property [a-zA-Z0-9\\_]+::\$[a-zA-Z0-9_]+#'
+
+        # Allow env() in package config
+        - identifier: larastan.noEnvCallsOutsideOfConfig
+          path: src/Config/*
+
+        # Mockery in tests
+        - message: '#Mockery\\MockInterface#'
+          path: tests/*
+
+        - message: '#Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage#'
+          path: tests/*
+
+        # Pest expectation types
+        - identifier: argument.templateType
+          path: tests/*
+
+        # Narrowed type assertions
+        - identifier: method.alreadyNarrowedType
+          path: tests/*
+
+        # Interface generics (intentionally flexible)
+        - identifier: missingType.generics
+          path: src/Contracts/*
+
+        - identifier: missingType.iterableValue
+          path: src/Contracts/*
+
+        # Collection covariance in repositories
+        - message: '#should return Illuminate\\Support\\Collection<int, Ordain\\Delegation\\Contracts\\.+Interface> but returns#'
+          path: src/Repositories/*
+
+        # Dynamic column names
+        - identifier: argument.type
+          paths:
+              - src/Repositories/EloquentDelegationRepository.php
+              - src/Traits/HasDelegation.php
+
+        # Trait generics
+        - identifier: missingType.generics
+          path: src/Traits/HasDelegation.php
+
+        # Null coalesce on casts
+        - identifier: nullCoalesce.property
+          path: src/Traits/HasDelegation.php
+
+    excludePaths:
+        - tests/Pest.php
