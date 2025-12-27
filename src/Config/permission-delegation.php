@@ -53,24 +53,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Super Admin Configuration
+    | Root Administrator
     |--------------------------------------------------------------------------
     |
-    | Configure super admin bypass behavior. Super admins can bypass all
-    | delegation restrictions.
+    | Users with this role bypass all delegation checks.
     |
     */
-    'super_admin' => [
-        /*
-        | Enable/disable super admin bypass
-        */
-        'enabled' => env('DELEGATION_SUPER_ADMIN_BYPASS', true),
-
-        /*
-        | The role name/identifier that grants super admin privileges.
-        | Users with this role bypass all delegation checks.
-        */
-        'role' => env('DELEGATION_SUPER_ADMIN_ROLE', 'super-admin'),
+    'root_admin' => [
+        'enabled' => env('DELEGATION_ROOT_ADMIN_BYPASS', true),
+        'role' => env('DELEGATION_ROOT_ADMIN_ROLE', 'root-admin'),
     ],
 
     /*

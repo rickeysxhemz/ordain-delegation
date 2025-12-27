@@ -4,1192 +4,630 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Tests\Unit;
 
+use Illuminate\Support\Collection;
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery\MockInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
+use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
+use Ordain\Delegation\Contracts\DelegationValidatorInterface;
+use Ordain\Delegation\Contracts\EventDispatcherInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\QuotaManagerInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
+use Ordain\Delegation\Contracts\RootAdminResolverInterface;
+use Ordain\Delegation\Contracts\TransactionManagerInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 use Ordain\Delegation\Services\DelegationService;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 
-final class DelegationServiceTest extends TestCase
+beforeEach(function (): void {
+    $this->authorizer = Mockery::mock(DelegationAuthorizerInterface::class);
+    $this->quotaManager = Mockery::mock(QuotaManagerInterface::class);
+    $this->validator = Mockery::mock(DelegationValidatorInterface::class);
+    $this->rootAdminResolver = Mockery::mock(RootAdminResolverInterface::class);
+    $this->delegationRepository = Mockery::mock(DelegationRepositoryInterface::class);
+    $this->roleRepository = Mockery::mock(RoleRepositoryInterface::class);
+    $this->permissionRepository = Mockery::mock(PermissionRepositoryInterface::class);
+    $this->transactionManager = Mockery::mock(TransactionManagerInterface::class);
+    $this->eventDispatcher = Mockery::mock(EventDispatcherInterface::class);
+    $this->audit = Mockery::mock(DelegationAuditInterface::class);
+
+    $this->service = new DelegationService(
+        authorizer: $this->authorizer,
+        quotaManager: $this->quotaManager,
+        validator: $this->validator,
+        rootAdminResolver: $this->rootAdminResolver,
+        delegationRepository: $this->delegationRepository,
+        roleRepository: $this->roleRepository,
+        permissionRepository: $this->permissionRepository,
+        transactionManager: $this->transactionManager,
+        eventDispatcher: $this->eventDispatcher,
+        audit: $this->audit,
+    );
+});
+
+function createMockUser(int $id, bool $canManageUsers = true, ?int $maxUsers = null): MockInterface&DelegatableUserInterface
 {
-    use MockeryPHPUnitIntegration;
-
-    private MockInterface&DelegationRepositoryInterface $delegationRepository;
-
-    private MockInterface&RoleRepositoryInterface $roleRepository;
-
-    private MockInterface&PermissionRepositoryInterface $permissionRepository;
-
-    private MockInterface&DelegationAuditInterface $audit;
-
-    private DelegationService $service;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        /** @var MockInterface&DelegationRepositoryInterface $delegationRepo */
-        $delegationRepo = Mockery::mock(DelegationRepositoryInterface::class);
-        $this->delegationRepository = $delegationRepo;
-
-        /** @var MockInterface&RoleRepositoryInterface $roleRepo */
-        $roleRepo = Mockery::mock(RoleRepositoryInterface::class);
-        $this->roleRepository = $roleRepo;
-
-        /** @var MockInterface&PermissionRepositoryInterface $permissionRepo */
-        $permissionRepo = Mockery::mock(PermissionRepositoryInterface::class);
-        $this->permissionRepository = $permissionRepo;
-
-        /** @var MockInterface&DelegationAuditInterface $audit */
-        $audit = Mockery::mock(DelegationAuditInterface::class);
-        $this->audit = $audit;
-
-        $this->service = new DelegationService(
-            delegationRepository: $this->delegationRepository,
-            roleRepository: $this->roleRepository,
-            permissionRepository: $this->permissionRepository,
-            audit: $this->audit,
-            superAdminBypassEnabled: true,
-            superAdminIdentifier: 'super-admin',
-        );
-    }
-
-    #[Test]
-    public function super_admin_can_assign_any_role(): void
-    {
-        $delegator = $this->createMockUser(1);
-        $role = $this->createMockRole(1, 'admin');
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $result = $this->service->canAssignRole($delegator, $role);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function non_manager_cannot_assign_roles(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $role = $this->createMockRole(1, 'admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canAssignRole($delegator, $role);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function manager_can_assign_role_in_assignable_list(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(true);
-
-        $result = $this->service->canAssignRole($delegator, $role);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function manager_cannot_assign_role_not_in_assignable_list(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $role = $this->createMockRole(1, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(false);
-
-        $result = $this->service->canAssignRole($delegator, $role);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function manager_cannot_assign_role_to_user_they_did_not_create(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 999);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canAssignRole($delegator, $role, $target);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function manager_can_assign_role_to_user_they_created(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(true);
-
-        $result = $this->service->canAssignRole($delegator, $role, $target);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function can_assign_permission_checks_assignable_list(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignablePermission')
-            ->with($delegator, $permission)
-            ->andReturn(true);
-
-        $result = $this->service->canAssignPermission($delegator, $permission);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function can_create_users_returns_true_for_manager_under_limit(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: 10);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getCreatedUsersCount')
-            ->with($delegator)
-            ->andReturn(5);
-
-        $result = $this->service->canCreateUsers($delegator);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function can_create_users_returns_false_when_limit_reached(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: 5);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getCreatedUsersCount')
-            ->with($delegator)
-            ->andReturn(5);
-
-        $result = $this->service->canCreateUsers($delegator);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function can_create_users_returns_true_for_unlimited_manager(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: null);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canCreateUsers($delegator);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function has_reached_user_limit_returns_correct_value(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: 3);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getCreatedUsersCount')
-            ->with($delegator)
-            ->andReturn(3);
-
-        $result = $this->service->hasReachedUserLimit($delegator);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function get_remaining_user_quota_calculates_correctly(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: 10);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getCreatedUsersCount')
-            ->with($delegator)
-            ->andReturn(7);
-
-        $result = $this->service->getRemainingUserQuota($delegator);
-
-        $this->assertSame(3, $result);
-    }
-
-    #[Test]
-    public function get_remaining_user_quota_returns_null_for_unlimited(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true, maxUsers: null);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->getRemainingUserQuota($delegator);
-
-        $this->assertNull($result);
-    }
-
-    #[Test]
-    public function get_assignable_roles_returns_all_roles_for_super_admin(): void
-    {
-        $delegator = $this->createMockUser(1);
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-        $allRoles = collect([
-            $this->createMockRole(1, 'admin'),
-            $this->createMockRole(2, 'editor'),
-        ]);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $this->roleRepository
-            ->shouldReceive('all')
-            ->andReturn($allRoles);
-
-        $result = $this->service->getAssignableRoles($delegator);
-
-        $this->assertCount(2, $result);
-    }
-
-    #[Test]
-    public function get_assignable_roles_returns_limited_roles_for_manager(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $assignableRoles = collect([
-            $this->createMockRole(1, 'editor'),
-        ]);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignableRoles')
-            ->with($delegator)
-            ->andReturn($assignableRoles);
-
-        $result = $this->service->getAssignableRoles($delegator);
-
-        $this->assertCount(1, $result);
-    }
-
-    #[Test]
-    public function delegate_role_assigns_role_when_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(true);
-
-        $this->roleRepository
-            ->shouldReceive('assignToUser')
-            ->with($target, $role)
-            ->once();
-
-        $this->audit
-            ->shouldReceive('logRoleAssigned')
-            ->with($delegator, $target, $role)
-            ->once();
-
-        $this->service->delegateRole($delegator, $target, $role);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function delegate_role_throws_exception_when_not_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->audit
-            ->shouldReceive('logUnauthorizedAttempt')
-            ->once();
-
-        $this->expectException(UnauthorizedDelegationException::class);
-        $this->expectExceptionMessage("User is not authorized to assign role 'admin'.");
-
-        $this->service->delegateRole($delegator, $target, $role);
-    }
-
-    #[Test]
-    public function delegate_permission_assigns_permission_when_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignablePermission')
-            ->with($delegator, $permission)
-            ->andReturn(true);
-
-        $this->permissionRepository
-            ->shouldReceive('assignToUser')
-            ->with($target, $permission)
-            ->once();
-
-        $this->audit
-            ->shouldReceive('logPermissionGranted')
-            ->with($delegator, $target, $permission)
-            ->once();
-
-        $this->service->delegatePermission($delegator, $target, $permission);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function revoke_role_removes_role_when_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(true);
-
-        $this->roleRepository
-            ->shouldReceive('removeFromUser')
-            ->with($target, $role)
-            ->once();
-
-        $this->audit
-            ->shouldReceive('logRoleRevoked')
-            ->with($delegator, $target, $role)
-            ->once();
-
-        $this->service->revokeRole($delegator, $target, $role);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function revoke_permission_removes_permission_when_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $permission = $this->createMockPermission(1, 'edit-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignablePermission')
-            ->with($delegator, $permission)
-            ->andReturn(true);
-
-        $this->permissionRepository
-            ->shouldReceive('removeFromUser')
-            ->with($target, $permission)
-            ->once();
-
-        $this->audit
-            ->shouldReceive('logPermissionRevoked')
-            ->with($delegator, $target, $permission)
-            ->once();
-
-        $this->service->revokePermission($delegator, $target, $permission);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function can_manage_user_returns_false_for_self(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUser(1, canManageUsers: true);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canManageUser($delegator, $target);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function can_manage_user_returns_true_for_created_user(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canManageUser($delegator, $target);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function set_delegation_scope_updates_all_settings(): void
-    {
-        $user = $this->createMockUser(1);
-        $scope = new DelegationScope(
-            canManageUsers: true,
-            maxManageableUsers: 10,
-            assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4],
-        );
-
-        // getDelegationScope is called internally to get old scope for audit
-        $this->delegationRepository
-            ->shouldReceive('getAssignableRoles')
-            ->with($user)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignablePermissions')
-            ->with($user)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('updateDelegationSettings')
-            ->with($user, true, 10)
-            ->once();
-
-        $this->delegationRepository
-            ->shouldReceive('syncAssignableRoles')
-            ->with($user, [1, 2])
-            ->once();
-
-        $this->delegationRepository
-            ->shouldReceive('syncAssignablePermissions')
-            ->with($user, [3, 4])
-            ->once();
-
-        // Mock DB::transaction to just execute the callback
-        \Illuminate\Support\Facades\DB::shouldReceive('transaction')
-            ->once()
-            ->andReturnUsing(fn (callable $callback) => $callback());
-
-        $this->service->setDelegationScope($user, $scope);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function get_delegation_scope_returns_correct_scope(): void
-    {
-        $user = $this->createMockUser(1, canManageUsers: true, maxUsers: 5);
-        $role = $this->createMockRole(1, 'editor');
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignableRoles')
-            ->with($user)
-            ->andReturn(collect([$role]));
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignablePermissions')
-            ->with($user)
-            ->andReturn(collect([$permission]));
-
-        $result = $this->service->getDelegationScope($user);
-
-        $this->assertTrue($result->canManageUsers);
-        $this->assertSame(5, $result->maxManageableUsers);
-        $this->assertSame([1], $result->assignableRoleIds);
-        $this->assertSame([1], $result->assignablePermissionIds);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_errors_for_invalid_roles(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([999])
-            ->andReturn(collect([]));
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $errors = $this->service->validateDelegation($delegator, $target, [999], []);
-
-        $this->assertArrayHasKey('role_999', $errors);
-        $this->assertStringContainsString('not found', $errors['role_999']);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_errors_for_unassignable_roles(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([1])
-            ->andReturn(collect([$role]));
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(false);
-
-        $errors = $this->service->validateDelegation($delegator, $target, [1], []);
-
-        $this->assertArrayHasKey('role_1', $errors);
-        $this->assertStringContainsString('cannot assign', $errors['role_1']);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_empty_when_valid(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'editor');
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([1])
-            ->andReturn(collect([$role]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignableRole')
-            ->with($delegator, $role)
-            ->andReturn(true);
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([1])
-            ->andReturn(collect([$permission]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignablePermission')
-            ->with($delegator, $permission)
-            ->andReturn(true);
-
-        $errors = $this->service->validateDelegation($delegator, $target, [1], [1]);
-
-        $this->assertEmpty($errors);
-    }
-
-    #[Test]
-    public function super_admin_bypass_can_be_disabled(): void
-    {
-        $service = new DelegationService(
-            delegationRepository: $this->delegationRepository,
-            roleRepository: $this->roleRepository,
-            permissionRepository: $this->permissionRepository,
-            audit: $this->audit,
-            superAdminBypassEnabled: false,
-            superAdminIdentifier: 'super-admin',
-        );
-
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $role = $this->createMockRole(1, 'admin');
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $result = $service->canAssignRole($delegator, $role);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function delegate_permission_throws_exception_when_not_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->audit
-            ->shouldReceive('logUnauthorizedAttempt')
-            ->once();
-
-        $this->expectException(UnauthorizedDelegationException::class);
-        $this->expectExceptionMessage("User is not authorized to grant permission 'create-posts'.");
-
-        $this->service->delegatePermission($delegator, $target, $permission);
-    }
-
-    #[Test]
-    public function revoke_role_throws_exception_when_not_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $role = $this->createMockRole(1, 'editor');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->audit
-            ->shouldReceive('logUnauthorizedAttempt')
-            ->once();
-
-        $this->expectException(UnauthorizedDelegationException::class);
-        $this->expectExceptionMessage("User is not authorized to revoke role 'editor'.");
-
-        $this->service->revokeRole($delegator, $target, $role);
-    }
-
-    #[Test]
-    public function revoke_permission_throws_exception_when_not_authorized(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $permission = $this->createMockPermission(1, 'edit-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->audit
-            ->shouldReceive('logUnauthorizedAttempt')
-            ->once();
-
-        $this->expectException(UnauthorizedDelegationException::class);
-        $this->expectExceptionMessage("User is not authorized to revoke permission 'edit-posts'.");
-
-        $this->service->revokePermission($delegator, $target, $permission);
-    }
-
-    #[Test]
-    public function can_manage_user_returns_false_when_target_has_no_creator(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, null);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canManageUser($delegator, $target);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function can_manage_user_returns_false_for_non_manager(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $target = $this->createMockUserWithCreator(2, 1);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canManageUser($delegator, $target);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_error_for_unauthorized_target(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 999); // Created by another user
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $errors = $this->service->validateDelegation($delegator, $target, [], []);
-
-        $this->assertArrayHasKey('target', $errors);
-        $this->assertStringContainsString('not authorized', $errors['target']);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_errors_for_invalid_permissions(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([999])
-            ->andReturn(collect([]));
-
-        $errors = $this->service->validateDelegation($delegator, $target, [], [999]);
-
-        $this->assertArrayHasKey('permission_999', $errors);
-        $this->assertStringContainsString('not found', $errors['permission_999']);
-    }
-
-    #[Test]
-    public function validate_delegation_returns_errors_for_unassignable_permissions(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 1);
-        $permission = $this->createMockPermission(1, 'admin-access');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->roleRepository
-            ->shouldReceive('findByIds')
-            ->with([])
-            ->andReturn(collect([]));
-
-        $this->permissionRepository
-            ->shouldReceive('findByIds')
-            ->with([1])
-            ->andReturn(collect([$permission]));
-
-        $this->delegationRepository
-            ->shouldReceive('hasAssignablePermission')
-            ->with($delegator, $permission)
-            ->andReturn(false);
-
-        $errors = $this->service->validateDelegation($delegator, $target, [], [1]);
-
-        $this->assertArrayHasKey('permission_1', $errors);
-        $this->assertStringContainsString('cannot grant', $errors['permission_1']);
-    }
-
-    #[Test]
-    public function get_assignable_permissions_returns_all_for_super_admin(): void
-    {
-        $delegator = $this->createMockUser(1);
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-        $allPermissions = collect([
-            $this->createMockPermission(1, 'create-posts'),
-            $this->createMockPermission(2, 'edit-posts'),
-        ]);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $this->permissionRepository
-            ->shouldReceive('all')
-            ->andReturn($allPermissions);
-
-        $result = $this->service->getAssignablePermissions($delegator);
-
-        $this->assertCount(2, $result);
-    }
-
-    #[Test]
-    public function get_assignable_permissions_returns_limited_for_manager(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $assignablePermissions = collect([
-            $this->createMockPermission(1, 'view-posts'),
-        ]);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignablePermissions')
-            ->with($delegator)
-            ->andReturn($assignablePermissions);
-
-        $result = $this->service->getAssignablePermissions($delegator);
-
-        $this->assertCount(1, $result);
-    }
-
-    #[Test]
-    public function set_delegation_scope_logs_audit_when_scope_changes(): void
-    {
-        $user = $this->createMockUser(1);
-        $admin = $this->createMockUser(99, canManageUsers: true);
-        $oldRole = $this->createMockRole(1, 'editor');
-
-        $oldScope = new DelegationScope(
-            canManageUsers: false,
-            maxManageableUsers: null,
-            assignableRoleIds: [1],
-            assignablePermissionIds: [],
-        );
-
-        $newScope = new DelegationScope(
-            canManageUsers: true,
-            maxManageableUsers: 10,
-            assignableRoleIds: [1, 2],
-            assignablePermissionIds: [3, 4],
-        );
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignableRoles')
-            ->with($user)
-            ->andReturn(collect([$oldRole]));
-
-        $this->delegationRepository
-            ->shouldReceive('getAssignablePermissions')
-            ->with($user)
-            ->andReturn(collect([]));
-
-        $this->delegationRepository
-            ->shouldReceive('updateDelegationSettings')
-            ->with($user, true, 10)
-            ->once();
-
-        $this->delegationRepository
-            ->shouldReceive('syncAssignableRoles')
-            ->with($user, [1, 2])
-            ->once();
-
-        $this->delegationRepository
-            ->shouldReceive('syncAssignablePermissions')
-            ->with($user, [3, 4])
-            ->once();
-
-        $this->audit
-            ->shouldReceive('logDelegationScopeChanged')
-            ->once();
-
-        \Illuminate\Support\Facades\DB::shouldReceive('transaction')
-            ->once()
-            ->andReturnUsing(fn (callable $callback) => $callback());
-
-        $this->service->setDelegationScope($user, $newScope, $admin);
-
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function super_admin_can_manage_any_user(): void
-    {
-        $delegator = $this->createMockUser(1);
-        $target = $this->createMockUserWithCreator(2, 999);
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $result = $this->service->canManageUser($delegator, $target);
-
-        $this->assertTrue($result);
-    }
-
-    #[Test]
-    public function super_admin_has_no_user_limit(): void
-    {
-        $delegator = $this->createMockUser(1, maxUsers: 5);
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $result = $this->service->hasReachedUserLimit($delegator);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function super_admin_has_unlimited_quota(): void
-    {
-        $delegator = $this->createMockUser(1, maxUsers: 5);
-        $superAdminRole = $this->createMockRole(999, 'super-admin');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([$superAdminRole]));
-
-        $result = $this->service->getRemainingUserQuota($delegator);
-
-        $this->assertNull($result);
-    }
-
-    #[Test]
-    public function can_create_users_returns_false_for_non_manager(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canCreateUsers($delegator);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function non_manager_cannot_assign_permission(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canAssignPermission($delegator, $permission);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function manager_cannot_assign_permission_to_user_they_did_not_create(): void
-    {
-        $delegator = $this->createMockUser(1, canManageUsers: true);
-        $target = $this->createMockUserWithCreator(2, 999);
-        $permission = $this->createMockPermission(1, 'create-posts');
-
-        $this->roleRepository
-            ->shouldReceive('getUserRoles')
-            ->with($delegator)
-            ->andReturn(collect([]));
-
-        $result = $this->service->canAssignPermission($delegator, $permission, $target);
-
-        $this->assertFalse($result);
-    }
-
-    #[Test]
-    public function super_admin_identifier_null_disables_bypass(): void
-    {
-        $service = new DelegationService(
-            delegationRepository: $this->delegationRepository,
-            roleRepository: $this->roleRepository,
-            permissionRepository: $this->permissionRepository,
-            audit: $this->audit,
-            superAdminBypassEnabled: true,
-            superAdminIdentifier: null,
-        );
-
-        $delegator = $this->createMockUser(1, canManageUsers: false);
-        $role = $this->createMockRole(1, 'admin');
-
-        $result = $service->canAssignRole($delegator, $role);
-
-        $this->assertFalse($result);
-    }
-
-    private function createMockUser(
-        int $id,
-        bool $canManageUsers = false,
-        ?int $maxUsers = null,
-    ): DelegatableUserInterface {
-        $user = Mockery::mock(DelegatableUserInterface::class);
-        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
-        $user->shouldReceive('canManageUsers')->andReturn($canManageUsers);
-        $user->shouldReceive('getMaxManageableUsers')->andReturn($maxUsers);
-
-        return $user;
-    }
-
-    private function createMockUserWithCreator(int $id, ?int $creatorId): DelegatableUserInterface
-    {
-        $user = Mockery::mock(DelegatableUserInterface::class);
-        $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
-        $user->shouldReceive('canManageUsers')->andReturn(false);
-        $user->shouldReceive('getMaxManageableUsers')->andReturn(null);
-
-        if ($creatorId !== null) {
-            $creator = Mockery::mock(DelegatableUserInterface::class);
-            $creator->shouldReceive('getDelegatableIdentifier')->andReturn($creatorId);
-            $user->creator = $creator;
-        } else {
-            $user->creator = null;
-        }
-
-        return $user;
-    }
-
-    private function createMockRole(int $id, string $name): RoleInterface
-    {
-        $role = Mockery::mock(RoleInterface::class);
-        $role->shouldReceive('getRoleIdentifier')->andReturn($id);
-        $role->shouldReceive('getRoleName')->andReturn($name);
-        $role->shouldReceive('getRoleGuard')->andReturn('web');
-
-        return $role;
-    }
-
-    private function createMockPermission(int $id, string $name): PermissionInterface
-    {
-        $permission = Mockery::mock(PermissionInterface::class);
-        $permission->shouldReceive('getPermissionIdentifier')->andReturn($id);
-        $permission->shouldReceive('getPermissionName')->andReturn($name);
-        $permission->shouldReceive('getPermissionGuard')->andReturn('web');
-
-        return $permission;
-    }
+    $user = Mockery::mock(DelegatableUserInterface::class);
+    $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
+    $user->shouldReceive('canManageUsers')->andReturn($canManageUsers);
+    $user->shouldReceive('getMaxManageableUsers')->andReturn($maxUsers);
+    $user->shouldReceive('getCreator')->andReturn(null);
+
+    return $user;
 }
+
+function createMockUserWithCreator(int $id, int $creatorId): MockInterface&DelegatableUserInterface
+{
+    $creator = Mockery::mock(DelegatableUserInterface::class);
+    $creator->shouldReceive('getDelegatableIdentifier')->andReturn($creatorId);
+
+    $user = Mockery::mock(DelegatableUserInterface::class);
+    $user->shouldReceive('getDelegatableIdentifier')->andReturn($id);
+    $user->shouldReceive('canManageUsers')->andReturn(true);
+    $user->shouldReceive('getMaxManageableUsers')->andReturn(null);
+    $user->shouldReceive('getCreator')->andReturn($creator);
+
+    return $user;
+}
+
+function createMockRole(int $id, string $name): MockInterface&RoleInterface
+{
+    $role = Mockery::mock(RoleInterface::class);
+    $role->shouldReceive('getRoleIdentifier')->andReturn($id);
+    $role->shouldReceive('getRoleName')->andReturn($name);
+    $role->shouldReceive('getRoleGuard')->andReturn('web');
+
+    return $role;
+}
+
+function createMockPermission(int $id, string $name): MockInterface&PermissionInterface
+{
+    $permission = Mockery::mock(PermissionInterface::class);
+    $permission->shouldReceive('getPermissionIdentifier')->andReturn($id);
+    $permission->shouldReceive('getPermissionName')->andReturn($name);
+    $permission->shouldReceive('getPermissionGuard')->andReturn('web');
+
+    return $permission;
+}
+
+describe('DelegationService', function (): void {
+    describe('canAssignRole', function (): void {
+        it('delegates to authorizer', function (): void {
+            $delegator = createMockUser(1);
+            $role = createMockRole(1, 'admin');
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->once()
+                ->with($delegator, $role, null)
+                ->andReturn(true);
+
+            $result = $this->service->canAssignRole($delegator, $role);
+
+            expect($result)->toBeTrue();
+        });
+
+        it('passes target to authorizer when provided', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'admin');
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->once()
+                ->with($delegator, $role, $target)
+                ->andReturn(false);
+
+            $result = $this->service->canAssignRole($delegator, $role, $target);
+
+            expect($result)->toBeFalse();
+        });
+    });
+
+    describe('canAssignPermission', function (): void {
+        it('delegates to authorizer', function (): void {
+            $delegator = createMockUser(1);
+            $permission = createMockPermission(1, 'create-posts');
+
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->once()
+                ->with($delegator, $permission, null)
+                ->andReturn(true);
+
+            $result = $this->service->canAssignPermission($delegator, $permission);
+
+            expect($result)->toBeTrue();
+        });
+    });
+
+    describe('canRevokeRole', function (): void {
+        it('delegates to authorizer', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'admin');
+
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->once()
+                ->with($delegator, $role, $target)
+                ->andReturn(true);
+
+            $result = $this->service->canRevokeRole($delegator, $role, $target);
+
+            expect($result)->toBeTrue();
+        });
+    });
+
+    describe('canRevokePermission', function (): void {
+        it('delegates to authorizer', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $permission = createMockPermission(1, 'edit-posts');
+
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->once()
+                ->with($delegator, $permission, $target)
+                ->andReturn(false);
+
+            $result = $this->service->canRevokePermission($delegator, $permission, $target);
+
+            expect($result)->toBeFalse();
+        });
+    });
+
+    describe('canCreateUsers', function (): void {
+        it('delegates to quota manager', function (): void {
+            $delegator = createMockUser(1);
+
+            $this->quotaManager->shouldReceive('canCreateUsers')
+                ->once()
+                ->with($delegator)
+                ->andReturn(true);
+
+            $result = $this->service->canCreateUsers($delegator);
+
+            expect($result)->toBeTrue();
+        });
+    });
+
+    describe('hasReachedUserLimit', function (): void {
+        it('delegates to quota manager', function (): void {
+            $delegator = createMockUser(1);
+
+            $this->quotaManager->shouldReceive('hasReachedLimit')
+                ->once()
+                ->with($delegator)
+                ->andReturn(false);
+
+            $result = $this->service->hasReachedUserLimit($delegator);
+
+            expect($result)->toBeFalse();
+        });
+    });
+
+    describe('getCreatedUsersCount', function (): void {
+        it('delegates to quota manager', function (): void {
+            $delegator = createMockUser(1);
+
+            $this->quotaManager->shouldReceive('getCreatedUsersCount')
+                ->once()
+                ->with($delegator)
+                ->andReturn(5);
+
+            $result = $this->service->getCreatedUsersCount($delegator);
+
+            expect($result)->toBe(5);
+        });
+    });
+
+    describe('getRemainingUserQuota', function (): void {
+        it('delegates to quota manager', function (): void {
+            $delegator = createMockUser(1);
+
+            $this->quotaManager->shouldReceive('getRemainingQuota')
+                ->once()
+                ->with($delegator)
+                ->andReturn(10);
+
+            $result = $this->service->getRemainingUserQuota($delegator);
+
+            expect($result)->toBe(10);
+        });
+
+        it('returns null for unlimited quota', function (): void {
+            $delegator = createMockUser(1);
+
+            $this->quotaManager->shouldReceive('getRemainingQuota')
+                ->once()
+                ->with($delegator)
+                ->andReturn(null);
+
+            $result = $this->service->getRemainingUserQuota($delegator);
+
+            expect($result)->toBeNull();
+        });
+    });
+
+    describe('withQuotaLock', function (): void {
+        it('delegates to quota manager', function (): void {
+            $delegator = createMockUser(1);
+            $newUser = createMockUser(2);
+            $callback = fn () => $newUser;
+
+            $this->quotaManager->shouldReceive('withLock')
+                ->once()
+                ->with($delegator, $callback)
+                ->andReturn($newUser);
+
+            $result = $this->service->withQuotaLock($delegator, $callback);
+
+            expect($result)->toBe($newUser);
+        });
+    });
+
+    describe('getAssignableRoles', function (): void {
+        it('returns all roles for super admin', function (): void {
+            $delegator = createMockUser(1);
+            $roles = new Collection([createMockRole(1, 'admin')]);
+
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($delegator)
+                ->andReturn(true);
+
+            $this->roleRepository->shouldReceive('all')
+                ->once()
+                ->andReturn($roles);
+
+            $result = $this->service->getAssignableRoles($delegator);
+
+            expect($result)->toBe($roles);
+        });
+
+        it('returns delegated roles for non-super-admin', function (): void {
+            $delegator = createMockUser(1);
+            $roles = new Collection([createMockRole(1, 'editor')]);
+
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($delegator)
+                ->andReturn(false);
+
+            $this->delegationRepository->shouldReceive('getAssignableRoles')
+                ->once()
+                ->with($delegator)
+                ->andReturn($roles);
+
+            $result = $this->service->getAssignableRoles($delegator);
+
+            expect($result)->toBe($roles);
+        });
+    });
+
+    describe('getAssignablePermissions', function (): void {
+        it('returns all permissions for super admin', function (): void {
+            $delegator = createMockUser(1);
+            $permissions = new Collection([createMockPermission(1, 'create-posts')]);
+
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($delegator)
+                ->andReturn(true);
+
+            $this->permissionRepository->shouldReceive('all')
+                ->once()
+                ->andReturn($permissions);
+
+            $result = $this->service->getAssignablePermissions($delegator);
+
+            expect($result)->toBe($permissions);
+        });
+
+        it('returns delegated permissions for non-super-admin', function (): void {
+            $delegator = createMockUser(1);
+            $permissions = new Collection([createMockPermission(1, 'edit-posts')]);
+
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($delegator)
+                ->andReturn(false);
+
+            $this->delegationRepository->shouldReceive('getAssignablePermissions')
+                ->once()
+                ->with($delegator)
+                ->andReturn($permissions);
+
+            $result = $this->service->getAssignablePermissions($delegator);
+
+            expect($result)->toBe($permissions);
+        });
+    });
+
+    describe('delegateRole', function (): void {
+        it('assigns role when authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'editor');
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $role, $target)
+                ->andReturn(true);
+
+            $this->roleRepository->shouldReceive('assignToUser')
+                ->once()
+                ->with($target, $role);
+
+            $this->audit->shouldReceive('logRoleAssigned')
+                ->once()
+                ->with($delegator, $target, $role);
+
+            $this->eventDispatcher->shouldReceive('dispatch')
+                ->once();
+
+            $this->service->delegateRole($delegator, $target, $role);
+        });
+
+        it('throws exception when not authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'admin');
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $role, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')
+                ->once();
+
+            $this->service->delegateRole($delegator, $target, $role);
+        })->throws(UnauthorizedDelegationException::class, "User is not authorized to assign role 'admin'.");
+    });
+
+    describe('delegatePermission', function (): void {
+        it('grants permission when authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $permission = createMockPermission(1, 'create-posts');
+
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $permission, $target)
+                ->andReturn(true);
+
+            $this->permissionRepository->shouldReceive('assignToUser')
+                ->once()
+                ->with($target, $permission);
+
+            $this->audit->shouldReceive('logPermissionGranted')
+                ->once()
+                ->with($delegator, $target, $permission);
+
+            $this->eventDispatcher->shouldReceive('dispatch')
+                ->once();
+
+            $this->service->delegatePermission($delegator, $target, $permission);
+        });
+
+        it('throws exception when not authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $permission = createMockPermission(1, 'delete-posts');
+
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $permission, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')
+                ->once();
+
+            $this->service->delegatePermission($delegator, $target, $permission);
+        })->throws(UnauthorizedDelegationException::class, "User is not authorized to grant permission 'delete-posts'.");
+    });
+
+    describe('revokeRole', function (): void {
+        it('revokes role when authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'editor');
+
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->with($delegator, $role, $target)
+                ->andReturn(true);
+
+            $this->roleRepository->shouldReceive('removeFromUser')
+                ->once()
+                ->with($target, $role);
+
+            $this->audit->shouldReceive('logRoleRevoked')
+                ->once()
+                ->with($delegator, $target, $role);
+
+            $this->eventDispatcher->shouldReceive('dispatch')
+                ->once();
+
+            $this->service->revokeRole($delegator, $target, $role);
+        });
+
+        it('throws exception when not authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'admin');
+
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->with($delegator, $role, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')
+                ->once();
+
+            $this->service->revokeRole($delegator, $target, $role);
+        })->throws(UnauthorizedDelegationException::class, "User is not authorized to revoke role 'admin'.");
+    });
+
+    describe('revokePermission', function (): void {
+        it('revokes permission when authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $permission = createMockPermission(1, 'edit-posts');
+
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->with($delegator, $permission, $target)
+                ->andReturn(true);
+
+            $this->permissionRepository->shouldReceive('removeFromUser')
+                ->once()
+                ->with($target, $permission);
+
+            $this->audit->shouldReceive('logPermissionRevoked')
+                ->once()
+                ->with($delegator, $target, $permission);
+
+            $this->eventDispatcher->shouldReceive('dispatch')
+                ->once();
+
+            $this->service->revokePermission($delegator, $target, $permission);
+        });
+
+        it('throws exception when not authorized', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $permission = createMockPermission(1, 'delete-posts');
+
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->with($delegator, $permission, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')
+                ->once();
+
+            $this->service->revokePermission($delegator, $target, $permission);
+        })->throws(UnauthorizedDelegationException::class, "User is not authorized to revoke permission 'delete-posts'.");
+    });
+
+    describe('canManageUser', function (): void {
+        it('delegates to authorizer', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+
+            $this->authorizer->shouldReceive('canManageUser')
+                ->once()
+                ->with($delegator, $target)
+                ->andReturn(true);
+
+            $result = $this->service->canManageUser($delegator, $target);
+
+            expect($result)->toBeTrue();
+        });
+    });
+
+    describe('validateDelegation', function (): void {
+        it('delegates to validator', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $roleIds = [1, 2];
+            $permissionIds = [3, 4];
+            $errors = ['role_1' => 'Cannot assign role'];
+
+            $this->validator->shouldReceive('validate')
+                ->once()
+                ->with($delegator, $target, $roleIds, $permissionIds)
+                ->andReturn($errors);
+
+            $result = $this->service->validateDelegation($delegator, $target, $roleIds, $permissionIds);
+
+            expect($result)->toBe($errors);
+        });
+    });
+
+    describe('getDelegationScope', function (): void {
+        it('returns delegation scope for user', function (): void {
+            $user = createMockUser(1, canManageUsers: true, maxUsers: 10);
+            $roles = new Collection([createMockRole(1, 'editor')]);
+            $permissions = new Collection([createMockPermission(1, 'create-posts')]);
+
+            $this->delegationRepository->shouldReceive('getAssignableRoles')
+                ->with($user)
+                ->andReturn($roles);
+
+            $this->delegationRepository->shouldReceive('getAssignablePermissions')
+                ->with($user)
+                ->andReturn($permissions);
+
+            $scope = $this->service->getDelegationScope($user);
+
+            expect($scope->canManageUsers)->toBeTrue();
+            expect($scope->maxManageableUsers)->toBe(10);
+            expect($scope->assignableRoleIds)->toBe([1]);
+            expect($scope->assignablePermissionIds)->toBe([1]);
+        });
+    });
+
+    describe('setDelegationScope', function (): void {
+        it('updates scope and dispatches event when changed', function (): void {
+            $user = createMockUser(1, canManageUsers: false, maxUsers: null);
+            $admin = createMockUser(99);
+            $newScope = new DelegationScope(
+                canManageUsers: true,
+                maxManageableUsers: 5,
+                assignableRoleIds: [1, 2],
+                assignablePermissionIds: [3],
+            );
+
+            $this->delegationRepository->shouldReceive('getAssignableRoles')
+                ->andReturn(new Collection);
+            $this->delegationRepository->shouldReceive('getAssignablePermissions')
+                ->andReturn(new Collection);
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->delegationRepository->shouldReceive('updateDelegationSettings')
+                ->once()
+                ->with($user, true, 5);
+
+            $this->delegationRepository->shouldReceive('syncAssignableRoles')
+                ->once()
+                ->with($user, [1, 2]);
+
+            $this->delegationRepository->shouldReceive('syncAssignablePermissions')
+                ->once()
+                ->with($user, [3]);
+
+            $this->audit->shouldReceive('logDelegationScopeChanged')
+                ->once();
+
+            $this->eventDispatcher->shouldReceive('dispatch')
+                ->once();
+
+            $this->service->setDelegationScope($user, $newScope, $admin);
+        });
+
+        it('does not dispatch event when scope unchanged', function (): void {
+            $user = createMockUser(1, canManageUsers: true, maxUsers: 5);
+            $existingRoles = new Collection([createMockRole(1, 'editor')]);
+            $existingPerms = new Collection([createMockPermission(1, 'create')]);
+            $scope = new DelegationScope(
+                canManageUsers: true,
+                maxManageableUsers: 5,
+                assignableRoleIds: [1],
+                assignablePermissionIds: [1],
+            );
+
+            $this->delegationRepository->shouldReceive('getAssignableRoles')
+                ->andReturn($existingRoles);
+            $this->delegationRepository->shouldReceive('getAssignablePermissions')
+                ->andReturn($existingPerms);
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->delegationRepository->shouldReceive('updateDelegationSettings')->once();
+            $this->delegationRepository->shouldReceive('syncAssignableRoles')->once();
+            $this->delegationRepository->shouldReceive('syncAssignablePermissions')->once();
+
+            $this->audit->shouldNotReceive('logDelegationScopeChanged');
+            $this->eventDispatcher->shouldNotReceive('dispatch');
+
+            $this->service->setDelegationScope($user, $scope);
+        });
+    });
+});

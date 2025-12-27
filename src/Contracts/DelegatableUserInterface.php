@@ -32,9 +32,17 @@ interface DelegatableUserInterface
     public function getMaxManageableUsers(): ?int;
 
     /**
-     * Get the user who created this user.
+     * Get the user who created this user (relationship).
      */
     public function creator(): BelongsTo;
+
+    /**
+     * Get the creator user instance.
+     *
+     * This method provides a type-safe way to access the creator
+     * without relying on dynamic property access.
+     */
+    public function getCreator(): ?self;
 
     /**
      * Get users created by this user.

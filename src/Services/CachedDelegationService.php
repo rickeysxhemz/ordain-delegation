@@ -20,11 +20,24 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
  */
 final readonly class CachedDelegationService implements DelegationServiceInterface
 {
+    /**
+     * Static cache key templates to avoid repeated string operations.
+     */
+    private const CACHE_KEYS = [
+        'scope' => 'scope',
+        'assignable_roles' => 'aroles',
+        'assignable_perms' => 'aperms',
+        'can_create_users' => 'ccreate',
+        'can_assign_role' => 'car',
+        'can_assign_perm' => 'cap',
+    ];
+
     public function __construct(
         private DelegationServiceInterface $inner,
         private CacheRepository $cache,
         private int $ttl = 3600,
         private string $prefix = 'delegation_',
+        private string $guardName = 'web',
     ) {}
 
     public function canAssignRole(
@@ -242,12 +255,22 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     }
 
     /**
-     * Generate a cache key.
+     * Generate a cache key with guard name to prevent multi-guard collisions.
+     *
+     * Uses optimized string interpolation instead of array operations.
      */
     private function cacheKey(string $type, DelegatableUserInterface $user, string ...$extra): string
     {
-        $parts = [$this->prefix, $type, (string) $user->getDelegatableIdentifier(), ...$extra];
+        // Use short key names from constants for smaller cache keys
+        $shortType = self::CACHE_KEYS[$type] ?? $type;
+        $userId = $user->getDelegatableIdentifier();
 
-        return implode('_', $parts);
+        $key = "{$this->prefix}{$this->guardName}_{$shortType}_{$userId}";
+
+        if ($extra !== []) {
+            $key .= '_'.implode('_', $extra);
+        }
+
+        return $key;
     }
 }

@@ -6,6 +6,7 @@ namespace Ordain\Delegation\Commands;
 
 use Illuminate\Console\Command;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
@@ -22,7 +23,7 @@ final class AssignRoleCommand extends Command
                             {target : The user ID receiving the role}
                             {role : The role name or ID to assign}
                             {--by-id : Treat role argument as ID instead of name}
-                            {--force : Bypass authorization checks (super admin mode)}';
+                            {--force : SECURITY: Bypass authorization checks (still audited)}';
 
     /**
      * The console command description.
@@ -37,6 +38,7 @@ final class AssignRoleCommand extends Command
     public function handle(
         DelegationServiceInterface $delegationService,
         RoleRepositoryInterface $roleRepository,
+        DelegationAuditInterface $audit,
     ): int {
         /** @var string $delegatorId */
         $delegatorId = $this->argument('delegator');
@@ -101,11 +103,19 @@ final class AssignRoleCommand extends Command
 
         try {
             if ($force) {
+                // SECURITY: Forced assignment bypasses delegation checks
+                // This should only be used by system administrators via CLI
+                $this->warn('⚠️  SECURITY: Bypassing delegation authorization checks (--force)');
+
                 // Direct role assignment bypassing delegation checks
                 $roleRepository->assignToUser($target, $role);
-                $this->info("Role '{$role->getRoleName()}' assigned to user #{$targetId} (forced).");
+
+                // Still log the action for audit trail - this is critical for security
+                $audit->logRoleAssigned($delegator, $target, $role);
+
+                $this->info("Role '{$role->getRoleName()}' assigned to user #{$targetId} (forced, audit logged).");
             } else {
-                // Normal delegation flow
+                // Normal delegation flow (includes audit logging)
                 $delegationService->delegateRole($delegator, $target, $role);
                 $this->info("Role '{$role->getRoleName()}' successfully delegated to user #{$targetId}.");
             }

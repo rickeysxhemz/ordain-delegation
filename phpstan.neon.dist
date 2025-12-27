@@ -55,9 +55,5 @@ parameters:
         - identifier: missingType.generics
           path: src/Traits/HasDelegation.php
 
-        # Null coalesce on casts
-        - identifier: nullCoalesce.property
-          path: src/Traits/HasDelegation.php
-
     excludePaths:
         - tests/Pest.php

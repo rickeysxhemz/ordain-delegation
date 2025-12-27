@@ -54,7 +54,9 @@
         },
         "laravel": {
             "providers": [
-                "Ordain\\Delegation\\Providers\\DelegationServiceProvider"
+                "Ordain\\Delegation\\Providers\\DelegationServiceProvider",
+                "Ordain\\Delegation\\Providers\\DelegationRouteServiceProvider",
+                "Ordain\\Delegation\\Providers\\DelegationBladeServiceProvider"
             ],
             "aliases": {
                 "Delegation": "Ordain\\Delegation\\Facades\\Delegation"

@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Services;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
+use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
+use Ordain\Delegation\Contracts\DelegationValidatorInterface;
+use Ordain\Delegation\Contracts\EventDispatcherInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\QuotaManagerInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
+use Ordain\Delegation\Contracts\RootAdminResolverInterface;
+use Ordain\Delegation\Contracts\TransactionManagerInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Events\DelegationScopeUpdated;
 use Ordain\Delegation\Events\PermissionGranted;
@@ -23,21 +28,21 @@ use Ordain\Delegation\Events\RoleRevoked;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 
 /**
- * Main delegation service implementing business logic.
- *
- * This service orchestrates all delegation operations while respecting
- * the boundaries defined by user delegation scopes.
+ * Orchestrates delegation operations via specialized services.
  */
 final readonly class DelegationService implements DelegationServiceInterface
 {
     public function __construct(
+        private DelegationAuthorizerInterface $authorizer,
+        private QuotaManagerInterface $quotaManager,
+        private DelegationValidatorInterface $validator,
+        private RootAdminResolverInterface $rootAdminResolver,
         private DelegationRepositoryInterface $delegationRepository,
         private RoleRepositoryInterface $roleRepository,
         private PermissionRepositoryInterface $permissionRepository,
+        private TransactionManagerInterface $transactionManager,
+        private EventDispatcherInterface $eventDispatcher,
         private ?DelegationAuditInterface $audit = null,
-        private bool $superAdminBypassEnabled = true,
-        private ?string $superAdminIdentifier = null,
-        private bool $eventsEnabled = false,
     ) {}
 
     public function canAssignRole(
@@ -45,19 +50,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         RoleInterface $role,
         ?DelegatableUserInterface $target = null,
     ): bool {
-        if ($this->isSuperAdmin($delegator)) {
-            return true;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        if ($target !== null && ! $this->canManageUser($delegator, $target)) {
-            return false;
-        }
-
-        return $this->delegationRepository->hasAssignableRole($delegator, $role);
+        return $this->authorizer->canAssignRole($delegator, $role, $target);
     }
 
     public function canAssignPermission(
@@ -65,19 +58,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         PermissionInterface $permission,
         ?DelegatableUserInterface $target = null,
     ): bool {
-        if ($this->isSuperAdmin($delegator)) {
-            return true;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        if ($target !== null && ! $this->canManageUser($delegator, $target)) {
-            return false;
-        }
-
-        return $this->delegationRepository->hasAssignablePermission($delegator, $permission);
+        return $this->authorizer->canAssignPermission($delegator, $permission, $target);
     }
 
     public function canRevokeRole(
@@ -85,8 +66,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         RoleInterface $role,
         DelegatableUserInterface $target,
     ): bool {
-        // Same logic as assignment - if you can assign it, you can revoke it
-        return $this->canAssignRole($delegator, $role, $target);
+        return $this->authorizer->canRevokeRole($delegator, $role, $target);
     }
 
     public function canRevokePermission(
@@ -94,85 +74,39 @@ final readonly class DelegationService implements DelegationServiceInterface
         PermissionInterface $permission,
         DelegatableUserInterface $target,
     ): bool {
-        // Same logic as assignment - if you can grant it, you can revoke it
-        return $this->canAssignPermission($delegator, $permission, $target);
+        return $this->authorizer->canRevokePermission($delegator, $permission, $target);
     }
 
     public function canCreateUsers(DelegatableUserInterface $delegator): bool
     {
-        if ($this->isSuperAdmin($delegator)) {
-            return true;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        return ! $this->hasReachedUserLimit($delegator);
+        return $this->quotaManager->canCreateUsers($delegator);
     }
 
     public function withQuotaLock(
         DelegatableUserInterface $delegator,
         callable $callback,
     ): DelegatableUserInterface {
-        return DB::transaction(function () use ($delegator, $callback): DelegatableUserInterface {
-            DB::table('users')
-                ->where('id', $delegator->getDelegatableIdentifier())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $this->canCreateUsers($delegator)) {
-                $maxUsers = $delegator->getMaxManageableUsers();
-
-                throw $maxUsers !== null
-                    ? UnauthorizedDelegationException::userLimitReached($delegator, $maxUsers)
-                    : UnauthorizedDelegationException::cannotCreateUsers($delegator);
-            }
-
-            return $callback();
-        });
+        return $this->quotaManager->withLock($delegator, $callback);
     }
 
     public function hasReachedUserLimit(DelegatableUserInterface $delegator): bool
     {
-        if ($this->isSuperAdmin($delegator)) {
-            return false;
-        }
-
-        $maxUsers = $delegator->getMaxManageableUsers();
-
-        if ($maxUsers === null) {
-            return false; // Unlimited
-        }
-
-        return $this->getCreatedUsersCount($delegator) >= $maxUsers;
+        return $this->quotaManager->hasReachedLimit($delegator);
     }
 
     public function getCreatedUsersCount(DelegatableUserInterface $delegator): int
     {
-        return $this->delegationRepository->getCreatedUsersCount($delegator);
+        return $this->quotaManager->getCreatedUsersCount($delegator);
     }
 
     public function getRemainingUserQuota(DelegatableUserInterface $delegator): ?int
     {
-        if ($this->isSuperAdmin($delegator)) {
-            return null; // Unlimited
-        }
-
-        $maxUsers = $delegator->getMaxManageableUsers();
-
-        if ($maxUsers === null) {
-            return null; // Unlimited
-        }
-
-        $created = $this->getCreatedUsersCount($delegator);
-
-        return max(0, $maxUsers - $created);
+        return $this->quotaManager->getRemainingQuota($delegator);
     }
 
     public function getAssignableRoles(DelegatableUserInterface $delegator): Collection
     {
-        if ($this->isSuperAdmin($delegator)) {
+        if ($this->rootAdminResolver->isRootAdmin($delegator)) {
             return $this->roleRepository->all();
         }
 
@@ -181,7 +115,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
     public function getAssignablePermissions(DelegatableUserInterface $delegator): Collection
     {
-        if ($this->isSuperAdmin($delegator)) {
+        if ($this->rootAdminResolver->isRootAdmin($delegator)) {
             return $this->permissionRepository->all();
         }
 
@@ -195,7 +129,7 @@ final readonly class DelegationService implements DelegationServiceInterface
     ): void {
         $oldScope = $this->getDelegationScope($user);
 
-        DB::transaction(function () use ($user, $scope): void {
+        $this->transactionManager->transaction(function () use ($user, $scope): void {
             $this->delegationRepository->updateDelegationSettings(
                 $user,
                 $scope->canManageUsers,
@@ -207,14 +141,12 @@ final readonly class DelegationService implements DelegationServiceInterface
         });
 
         if (! $oldScope->equals($scope)) {
-            if ($admin !== null) {
-                $this->audit?->logDelegationScopeChanged($admin, $user, [
-                    'old' => $oldScope->toArray(),
-                    'new' => $scope->toArray(),
-                ]);
-            }
+            $this->audit?->logDelegationScopeChanged($admin ?? $user, $user, [
+                'old' => $oldScope->toArray(),
+                'new' => $scope->toArray(),
+            ]);
 
-            $this->dispatchEvent(new DelegationScopeUpdated($user, $oldScope, $scope, $admin));
+            $this->eventDispatcher->dispatch(new DelegationScopeUpdated($user, $oldScope, $scope, $admin));
         }
     }
 
@@ -236,7 +168,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         DelegatableUserInterface $target,
         RoleInterface $role,
     ): void {
-        if (! $this->canAssignRole($delegator, $role, $target)) {
+        if (! $this->authorizer->canAssignRole($delegator, $role, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'assign_role', [
                 'role' => $role->getRoleName(),
                 'target' => $target->getDelegatableIdentifier(),
@@ -247,7 +179,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->assignToUser($target, $role);
         $this->audit?->logRoleAssigned($delegator, $target, $role);
-        $this->dispatchEvent(new RoleDelegated($delegator, $target, $role));
+        $this->eventDispatcher->dispatch(new RoleDelegated($delegator, $target, $role));
     }
 
     public function delegatePermission(
@@ -255,7 +187,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         DelegatableUserInterface $target,
         PermissionInterface $permission,
     ): void {
-        if (! $this->canAssignPermission($delegator, $permission, $target)) {
+        if (! $this->authorizer->canAssignPermission($delegator, $permission, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'grant_permission', [
                 'permission' => $permission->getPermissionName(),
                 'target' => $target->getDelegatableIdentifier(),
@@ -266,7 +198,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->assignToUser($target, $permission);
         $this->audit?->logPermissionGranted($delegator, $target, $permission);
-        $this->dispatchEvent(new PermissionGranted($delegator, $target, $permission));
+        $this->eventDispatcher->dispatch(new PermissionGranted($delegator, $target, $permission));
     }
 
     public function revokeRole(
@@ -274,7 +206,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         DelegatableUserInterface $target,
         RoleInterface $role,
     ): void {
-        if (! $this->canRevokeRole($delegator, $role, $target)) {
+        if (! $this->authorizer->canRevokeRole($delegator, $role, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'revoke_role', [
                 'role' => $role->getRoleName(),
                 'target' => $target->getDelegatableIdentifier(),
@@ -285,7 +217,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->removeFromUser($target, $role);
         $this->audit?->logRoleRevoked($delegator, $target, $role);
-        $this->dispatchEvent(new RoleRevoked($delegator, $target, $role));
+        $this->eventDispatcher->dispatch(new RoleRevoked($delegator, $target, $role));
     }
 
     public function revokePermission(
@@ -293,7 +225,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         DelegatableUserInterface $target,
         PermissionInterface $permission,
     ): void {
-        if (! $this->canRevokePermission($delegator, $permission, $target)) {
+        if (! $this->authorizer->canRevokePermission($delegator, $permission, $target)) {
             $this->audit?->logUnauthorizedAttempt($delegator, 'revoke_permission', [
                 'permission' => $permission->getPermissionName(),
                 'target' => $target->getDelegatableIdentifier(),
@@ -304,33 +236,14 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->removeFromUser($target, $permission);
         $this->audit?->logPermissionRevoked($delegator, $target, $permission);
-        $this->dispatchEvent(new PermissionRevoked($delegator, $target, $permission));
+        $this->eventDispatcher->dispatch(new PermissionRevoked($delegator, $target, $permission));
     }
 
     public function canManageUser(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
     ): bool {
-        if ($this->isSuperAdmin($delegator)) {
-            return true;
-        }
-
-        // Cannot manage self
-        if ($delegator->getDelegatableIdentifier() === $target->getDelegatableIdentifier()) {
-            return false;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        // Can manage users created by this delegator
-        $creator = $target->creator;
-        if ($creator !== null) {
-            return $creator->getDelegatableIdentifier() === $delegator->getDelegatableIdentifier();
-        }
-
-        return false;
+        return $this->authorizer->canManageUser($delegator, $target);
     }
 
     /**
@@ -344,86 +257,6 @@ final readonly class DelegationService implements DelegationServiceInterface
         array $roles = [],
         array $permissions = [],
     ): array {
-        $errors = [];
-
-        if (! $this->canManageUser($delegator, $target)) {
-            $errors['target'] = 'You are not authorized to manage this user.';
-        }
-
-        // Batch load all roles at once to avoid N+1 queries
-        $roleMap = $this->roleRepository->findByIds($roles)->keyBy(
-            fn (RoleInterface $r): int|string => $r->getRoleIdentifier(),
-        );
-
-        foreach ($roles as $roleId) {
-            $role = $roleMap->get($roleId);
-            if ($role === null) {
-                $errors["role_{$roleId}"] = "Role with ID {$roleId} not found.";
-
-                continue;
-            }
-
-            if (! $this->canAssignRole($delegator, $role)) {
-                $errors["role_{$roleId}"] = "You cannot assign the role '{$role->getRoleName()}'.";
-            }
-        }
-
-        // Batch load all permissions at once to avoid N+1 queries
-        $permissionMap = $this->permissionRepository->findByIds($permissions)->keyBy(
-            fn (PermissionInterface $p): int|string => $p->getPermissionIdentifier(),
-        );
-
-        foreach ($permissions as $permissionId) {
-            $permission = $permissionMap->get($permissionId);
-            if ($permission === null) {
-                $errors["permission_{$permissionId}"] = "Permission with ID {$permissionId} not found.";
-
-                continue;
-            }
-
-            if (! $this->canAssignPermission($delegator, $permission)) {
-                $errors["permission_{$permissionId}"] = "You cannot grant the permission '{$permission->getPermissionName()}'.";
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Check if user is a super admin (bypasses all delegation checks).
-     *
-     * Uses once() for request-scoped caching to prevent N+1 queries.
-     */
-    private function isSuperAdmin(DelegatableUserInterface $user): bool
-    {
-        if (! $this->superAdminBypassEnabled) {
-            return false;
-        }
-
-        if ($this->superAdminIdentifier === null) {
-            return false;
-        }
-
-        return once(function () use ($user): bool {
-            $roles = $this->roleRepository->getUserRoles($user);
-
-            foreach ($roles as $role) {
-                if ($role->getRoleName() === $this->superAdminIdentifier) {
-                    return true;
-                }
-            }
-
-            return false;
-        });
-    }
-
-    /**
-     * Dispatch an event if events are enabled.
-     */
-    private function dispatchEvent(object $event): void
-    {
-        if ($this->eventsEnabled) {
-            event($event);
-        }
+        return $this->validator->validate($delegator, $target, $roles, $permissions);
     }
 }

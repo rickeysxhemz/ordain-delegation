@@ -32,6 +32,7 @@ beforeEach(function (): void {
         cache: $this->cache,
         ttl: 3600,
         prefix: 'delegation_',
+        guardName: 'web',
     );
 });
 
@@ -39,7 +40,7 @@ describe('CachedDelegationService', function (): void {
     it('caches canAssignRole without target', function (): void {
         $this->cache->shouldReceive('remember')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'can_assign_role') && $ttl === 3600)
+            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'car_1_10') && $ttl === 3600)
             ->andReturn(true);
 
         $result = $this->service->canAssignRole($this->delegator, $this->role);
@@ -61,7 +62,7 @@ describe('CachedDelegationService', function (): void {
     it('caches canAssignPermission without target', function (): void {
         $this->cache->shouldReceive('remember')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'can_assign_perm') && $ttl === 3600)
+            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'cap_1_20') && $ttl === 3600)
             ->andReturn(true);
 
         $result = $this->service->canAssignPermission($this->delegator, $this->permission);
@@ -105,7 +106,7 @@ describe('CachedDelegationService', function (): void {
     it('caches canCreateUsers', function (): void {
         $this->cache->shouldReceive('remember')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'can_create_users'))
+            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'ccreate_1'))
             ->andReturn(true);
 
         $result = $this->service->canCreateUsers($this->delegator);
@@ -150,7 +151,7 @@ describe('CachedDelegationService', function (): void {
         $roles = new Collection;
         $this->cache->shouldReceive('remember')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'assignable_roles'))
+            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'aroles_1'))
             ->andReturn($roles);
 
         $result = $this->service->getAssignableRoles($this->delegator);
@@ -162,7 +163,7 @@ describe('CachedDelegationService', function (): void {
         $permissions = new Collection;
         $this->cache->shouldReceive('remember')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'assignable_perms'))
+            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'aperms_1'))
             ->andReturn($permissions);
 
         $result = $this->service->getAssignablePermissions($this->delegator);

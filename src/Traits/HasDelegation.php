@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use InvalidArgumentException;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
@@ -18,41 +19,70 @@ use Ordain\Delegation\Contracts\RoleInterface;
  *
  * Add this trait to your User model and implement DelegatableUserInterface.
  *
+ * IMPORTANT: You must manually configure your User model's $fillable or $guarded
+ * to include/exclude the delegation fields. This trait does NOT auto-add them
+ * to prevent mass assignment vulnerabilities.
+ *
+ * Required fields to consider for $fillable (if using whitelist approach):
+ * - 'can_manage_users' (boolean)
+ * - 'max_manageable_users' (integer, nullable)
+ * - 'created_by_user_id' (foreign key, nullable)
+ *
+ * SECURITY WARNING: The 'can_manage_users' field controls privilege escalation.
+ * Only add it to $fillable if you have proper validation in place.
+ * Consider using $guarded or explicit assignment instead.
+ *
  * @mixin Model
  */
 trait HasDelegation
 {
     /**
+     * Delegation field casts - defined statically to avoid per-instance allocation.
+     *
+     * @var array<string, string>
+     */
+    private static array $delegationCasts = [
+        'can_manage_users' => 'boolean',
+        'max_manageable_users' => 'integer',
+    ];
+
+    /**
      * Boot the trait.
      */
     public static function bootHasDelegation(): void
     {
-        // Can add model event listeners here if needed
+        // Validate that sensitive fields are properly guarded
+        static::creating(static function (Model $model): void {
+            // Prevent self-referential creator (circular reference)
+            if ($model->created_by_user_id !== null
+                && $model->exists
+                && $model->created_by_user_id === $model->getKey()) {
+                throw new InvalidArgumentException('A user cannot be their own creator.');
+            }
+        });
+
+        static::updating(static function (Model $model): void {
+            // Prevent circular creator reference on update
+            if ($model->isDirty('created_by_user_id')
+                && $model->created_by_user_id === $model->getKey()) {
+                throw new InvalidArgumentException('A user cannot be their own creator.');
+            }
+        });
     }
 
     /**
      * Initialize the trait.
+     *
+     * Note: This method intentionally does NOT modify $fillable to prevent
+     * mass assignment vulnerabilities. Configure your model's $fillable
+     * or $guarded manually with appropriate validation.
      */
     public function initializeHasDelegation(): void
     {
-        // Add default values to fillable if not already present
-        $fillableFields = [
-            'can_manage_users',
-            'max_manageable_users',
-            'created_by_user_id',
-        ];
-
-        foreach ($fillableFields as $field) {
-            if (! in_array($field, $this->fillable, true)) {
-                $this->fillable[] = $field;
-            }
+        // Merge casts efficiently using static array to avoid per-instance allocation
+        if (! isset($this->casts['can_manage_users'])) {
+            $this->mergeCasts(self::$delegationCasts);
         }
-
-        // Add casts
-        $this->casts = array_merge($this->casts ?? [], [
-            'can_manage_users' => 'boolean',
-            'max_manageable_users' => 'integer',
-        ]);
     }
 
     /**
@@ -82,11 +112,25 @@ trait HasDelegation
     }
 
     /**
-     * Get the user who created this user.
+     * Get the user who created this user (relationship).
      */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(static::class, 'created_by_user_id');
+    }
+
+    /**
+     * Get the creator user instance.
+     *
+     * This method provides a type-safe way to access the creator
+     * without relying on dynamic property access.
+     */
+    public function getCreator(): ?DelegatableUserInterface
+    {
+        /** @var DelegatableUserInterface|null $creator */
+        $creator = $this->creator;
+
+        return $creator;
     }
 
     /**
