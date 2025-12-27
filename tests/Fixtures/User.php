@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Tests\Fixtures;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Traits\HasDelegation;
 use Spatie\Permission\Traits\HasRoles;
@@ -13,38 +13,57 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * Test fixture User model.
  */
-class User extends Model implements DelegatableUserInterface
+class User extends Model implements DelegatableUserInterface, Authenticatable
 {
     use HasDelegation;
     use HasRoles;
 
+    /**
+     * @var string|null
+     */
+    protected $rememberTokenName = 'remember_token';
+
+    /**
+     * Guard name for Spatie permission.
+     */
+    protected string $guard_name = 'web';
+
+    public function getAuthIdentifierName(): string
+    {
+        return 'id';
+    }
+
+    public function getAuthIdentifier(): mixed
+    {
+        return $this->getKey();
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'password';
+    }
+
+    public function getAuthPassword(): string
+    {
+        return $this->password ?? '';
+    }
+
+    public function getRememberToken(): ?string
+    {
+        return $this->remember_token ?? null;
+    }
+
+    public function setRememberToken($value): void
+    {
+        $this->remember_token = $value;
+    }
+
+    public function getRememberTokenName(): string
+    {
+        return 'remember_token';
+    }
+
     protected $guarded = [];
 
     protected $table = 'users';
-
-    /**
-     * @return BelongsToMany<\Spatie\Permission\Models\Role, $this>
-     */
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            \Spatie\Permission\Models\Role::class,
-            'model_has_roles',
-            'model_id',
-            'role_id',
-        );
-    }
-
-    /**
-     * @return BelongsToMany<\Spatie\Permission\Models\Permission, $this>
-     */
-    public function permissions(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            \Spatie\Permission\Models\Permission::class,
-            'model_has_permissions',
-            'model_id',
-            'permission_id',
-        );
-    }
 }

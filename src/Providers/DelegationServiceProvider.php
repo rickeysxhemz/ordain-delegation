@@ -136,7 +136,9 @@ final class DelegationServiceProvider extends ServiceProvider
 
     private function publishAssets(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
+        if (config('permission-delegation.run_migrations', true)) {
+            $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
+        }
 
         $this->publishes([
             __DIR__.'/../Config/permission-delegation.php' => config_path('permission-delegation.php'),

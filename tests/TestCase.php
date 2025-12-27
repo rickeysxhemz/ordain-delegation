@@ -36,6 +36,20 @@ abstract class TestCase extends Orchestra
         ]);
 
         $app['config']->set('permission-delegation.user_model', \Ordain\Delegation\Tests\Fixtures\User::class);
+
+        // Prevent package from loading its migrations (we use test migrations)
+        $app['config']->set('permission-delegation.run_migrations', false);
+
+        // Configure auth guard for Spatie permission
+        $app['config']->set('auth.defaults.guard', 'web');
+        $app['config']->set('auth.guards.web', [
+            'driver' => 'session',
+            'provider' => 'users',
+        ]);
+        $app['config']->set('auth.providers.users', [
+            'driver' => 'eloquent',
+            'model' => \Ordain\Delegation\Tests\Fixtures\User::class,
+        ]);
     }
 
     protected function defineDatabaseMigrations(): void

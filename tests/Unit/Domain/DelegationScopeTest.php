@@ -161,4 +161,56 @@ describe('DelegationScope', function (): void {
         expect($scope1->equals($scope2))->toBeTrue()
             ->and($scope1->equals($scope3))->toBeFalse();
     });
+
+    it('throws exception for invalid role ID type', function (): void {
+        new DelegationScope(
+            assignableRoleIds: [1, 2, ['invalid']],
+        );
+    })->throws(InvalidArgumentException::class, 'Assignable role IDs must be integers or strings.');
+
+    it('throws exception for invalid permission ID type', function (): void {
+        new DelegationScope(
+            assignablePermissionIds: [1, new stdClass],
+        );
+    })->throws(InvalidArgumentException::class, 'Assignable permission IDs must be integers or strings.');
+
+    it('filters out empty strings from role IDs', function (): void {
+        $scope = new DelegationScope(
+            assignableRoleIds: [1, '', 2, '', 3],
+        );
+
+        expect($scope->assignableRoleIds)->toBe([1, 2, 3]);
+    });
+
+    it('filters out empty strings from permission IDs', function (): void {
+        $scope = new DelegationScope(
+            assignablePermissionIds: ['read', '', 'write'],
+        );
+
+        expect($scope->assignablePermissionIds)->toBe(['read', 'write']);
+    });
+
+    it('removes duplicate role IDs', function (): void {
+        $scope = new DelegationScope(
+            assignableRoleIds: [1, 2, 1, 3, 2, 3],
+        );
+
+        expect($scope->assignableRoleIds)->toBe([1, 2, 3]);
+    });
+
+    it('removes duplicate permission IDs', function (): void {
+        $scope = new DelegationScope(
+            assignablePermissionIds: ['read', 'write', 'read', 'delete'],
+        );
+
+        expect($scope->assignablePermissionIds)->toBe(['read', 'write', 'delete']);
+    });
+
+    it('treats string and integer IDs as different', function (): void {
+        $scope = new DelegationScope(
+            assignableRoleIds: [1, '1', 2, '2'],
+        );
+
+        expect($scope->assignableRoleIds)->toBe([1, '1', 2, '2']);
+    });
 });

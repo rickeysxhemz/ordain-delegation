@@ -105,6 +105,20 @@ describe('canAssignPermission', function (): void {
         expect($this->authorizer->canAssignPermission($this->delegator, $this->permission))->toBeFalse();
     });
 
+    it('returns false when delegator cannot manage target user', function (): void {
+        $this->rootAdminResolver->shouldReceive('isRootAdmin')
+            ->with($this->delegator)
+            ->andReturn(false);
+
+        $this->delegator->shouldReceive('canManageUsers')->andReturn(true);
+        $this->delegator->shouldReceive('getDelegatableIdentifier')->andReturn(1);
+
+        $this->target->shouldReceive('getDelegatableIdentifier')->andReturn(2);
+        $this->target->shouldReceive('getCreator')->andReturn(null);
+
+        expect($this->authorizer->canAssignPermission($this->delegator, $this->permission, $this->target))->toBeFalse();
+    });
+
     it('returns true when delegator has assignable permission', function (): void {
         $this->rootAdminResolver->shouldReceive('isRootAdmin')
             ->with($this->delegator)

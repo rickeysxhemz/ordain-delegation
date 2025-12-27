@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Repositories;
 
 use Illuminate\Support\Collection;
+use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
+use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
@@ -14,7 +16,7 @@ use Ordain\Delegation\Contracts\RoleInterface;
  * Eloquent implementation of the delegation repository.
  *
  * Uses model relationships defined via the HasDelegation trait.
- * Assumes Role/Permission models implement RoleInterface/PermissionInterface.
+ * Wraps Spatie models in adapters that implement RoleInterface/PermissionInterface.
  */
 final readonly class EloquentDelegationRepository implements DelegationRepositoryInterface
 {
@@ -23,8 +25,7 @@ final readonly class EloquentDelegationRepository implements DelegationRepositor
      */
     public function getAssignableRoles(DelegatableUserInterface $user): Collection
     {
-        /** @var Collection<int, RoleInterface> */
-        return $user->assignableRoles()->get();
+        return SpatieRoleAdapter::collection($user->assignableRoles()->get());
     }
 
     /**
@@ -32,8 +33,7 @@ final readonly class EloquentDelegationRepository implements DelegationRepositor
      */
     public function getAssignablePermissions(DelegatableUserInterface $user): Collection
     {
-        /** @var Collection<int, PermissionInterface> */
-        return $user->assignablePermissions()->get();
+        return SpatiePermissionAdapter::collection($user->assignablePermissions()->get());
     }
 
     public function setAssignableRoles(DelegatableUserInterface $user, array $roleIds): void
