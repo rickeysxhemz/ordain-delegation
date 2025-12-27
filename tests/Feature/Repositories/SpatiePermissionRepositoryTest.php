@@ -6,7 +6,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
 use Ordain\Delegation\Repositories\SpatiePermissionRepository;
 use Ordain\Delegation\Tests\Fixtures\User;
-use Ordain\Delegation\Tests\TestCase;
 use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);

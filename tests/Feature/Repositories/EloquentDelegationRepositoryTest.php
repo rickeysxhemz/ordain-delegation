@@ -7,7 +7,6 @@ use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Repositories\EloquentDelegationRepository;
 use Ordain\Delegation\Tests\Fixtures\User;
-use Ordain\Delegation\Tests\TestCase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 

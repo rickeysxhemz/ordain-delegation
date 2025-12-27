@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Ordain\Delegation\Tests\Fixtures\User;
-use Ordain\Delegation\Tests\TestCase;
 use Ordain\Delegation\View\BladeDirectives;
 use Spatie\Permission\Models\Role;
 

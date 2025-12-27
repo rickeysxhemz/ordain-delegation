@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Ordain\Delegation\Tests\Fixtures\User;
-use Ordain\Delegation\Tests\TestCase;
 
 uses(RefreshDatabase::class);
 

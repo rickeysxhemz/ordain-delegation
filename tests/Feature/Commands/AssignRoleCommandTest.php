@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Ordain\Delegation\Tests\Fixtures\User;
-use Ordain\Delegation\Tests\TestCase;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);

@@ -13,7 +13,7 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * Test fixture User model.
  */
-class User extends Model implements DelegatableUserInterface, Authenticatable
+class User extends Model implements Authenticatable, DelegatableUserInterface
 {
     use HasDelegation;
     use HasRoles;
@@ -27,6 +27,10 @@ class User extends Model implements DelegatableUserInterface, Authenticatable
      * Guard name for Spatie permission.
      */
     protected string $guard_name = 'web';
+
+    protected $guarded = [];
+
+    protected $table = 'users';
 
     public function getAuthIdentifierName(): string
     {
@@ -62,8 +66,4 @@ class User extends Model implements DelegatableUserInterface, Authenticatable
     {
         return 'remember_token';
     }
-
-    protected $guarded = [];
-
-    protected $table = 'users';
 }
