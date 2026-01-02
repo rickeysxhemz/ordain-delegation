@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Repositories;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
@@ -71,7 +72,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
     /**
      * @return Collection<int, RoleInterface>
      */
-    public function all(?string $guard = null): Collection
+    public function all(?string $guard = null, ?int $limit = 500): Collection
     {
         $query = $this->roleModelClass::query();
 
@@ -79,7 +80,27 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             $query->where('guard_name', $guard);
         }
 
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
         return SpatieRoleAdapter::collection($query->get());
+    }
+
+    /**
+     * @return LazyCollection<int, RoleInterface>
+     */
+    public function allLazy(?string $guard = null): LazyCollection
+    {
+        $query = $this->roleModelClass::query();
+
+        if ($guard !== null) {
+            $query->where('guard_name', $guard);
+        }
+
+        return $query->lazy()->map(
+            fn (SpatieRoleContract $role): RoleInterface => SpatieRoleAdapter::fromModel($role),
+        );
     }
 
     /**
@@ -113,6 +134,38 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
     {
         /** @phpstan-ignore-next-line */
         return $user->hasRole($role->getRoleName());
+    }
+
+    public function userHasRoleByName(DelegatableUserInterface $user, string $roleName, ?string $guard = null): bool
+    {
+        /** @phpstan-ignore-next-line */
+        $query = $user->roles()->where('name', $roleName);
+
+        if ($guard !== null) {
+            /** @phpstan-ignore-next-line */
+            $query->where('guard_name', $guard);
+        }
+
+        return $query->exists();
+    }
+
+    /**
+     * @param  array<string>  $names
+     * @return Collection<int, RoleInterface>
+     */
+    public function findByNames(array $names, ?string $guard = null): Collection
+    {
+        if ($names === []) {
+            return collect();
+        }
+
+        $query = $this->roleModelClass::whereIn('name', $names);
+
+        if ($guard !== null) {
+            $query->where('guard_name', $guard);
+        }
+
+        return SpatieRoleAdapter::collection($query->get());
     }
 
     /**

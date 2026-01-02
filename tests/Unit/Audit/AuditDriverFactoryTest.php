@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Services\Audit\AuditDriverFactory;
 use Ordain\Delegation\Services\Audit\DatabaseDelegationAudit;
 use Ordain\Delegation\Services\Audit\LogDelegationAudit;
@@ -10,11 +11,15 @@ use Ordain\Delegation\Tests\TestCase;
 
 uses(TestCase::class);
 
+beforeEach(function (): void {
+    $this->factory = new AuditDriverFactory($this->app);
+});
+
 describe('AuditDriverFactory', function (): void {
     it('returns NullDelegationAudit when audit is disabled', function (): void {
         config(['permission-delegation.audit.enabled' => false]);
 
-        $audit = AuditDriverFactory::create($this->app);
+        $audit = $this->factory->create();
 
         expect($audit)->toBeInstanceOf(NullDelegationAudit::class);
     });
@@ -26,7 +31,7 @@ describe('AuditDriverFactory', function (): void {
             'permission-delegation.tables.delegation_audit_logs' => 'audit_logs',
         ]);
 
-        $audit = AuditDriverFactory::create($this->app);
+        $audit = $this->factory->create();
 
         expect($audit)->toBeInstanceOf(DatabaseDelegationAudit::class);
     });
@@ -38,7 +43,7 @@ describe('AuditDriverFactory', function (): void {
             'permission-delegation.audit.log_channel' => 'daily',
         ]);
 
-        $audit = AuditDriverFactory::create($this->app);
+        $audit = $this->factory->create();
 
         expect($audit)->toBeInstanceOf(LogDelegationAudit::class);
     });
@@ -49,8 +54,33 @@ describe('AuditDriverFactory', function (): void {
             'permission-delegation.audit.driver' => 'null',
         ]);
 
-        $audit = AuditDriverFactory::create($this->app);
+        $audit = $this->factory->create();
 
         expect($audit)->toBeInstanceOf(NullDelegationAudit::class);
+    });
+
+    it('supports custom driver registration via extend', function (): void {
+        config([
+            'permission-delegation.audit.enabled' => true,
+            'permission-delegation.audit.driver' => 'custom',
+        ]);
+
+        $customAudit = Mockery::mock(DelegationAuditInterface::class);
+
+        $this->factory->extend('custom', fn () => $customAudit);
+
+        $audit = $this->factory->create();
+
+        expect($audit)->toBe($customAudit);
+    });
+
+    it('clears custom drivers', function (): void {
+        $this->factory->extend('custom', fn () => new NullDelegationAudit);
+
+        expect($this->factory->hasDriver('custom'))->toBeTrue();
+
+        $this->factory->clearCustomDrivers();
+
+        expect($this->factory->hasDriver('custom'))->toBeFalse();
     });
 });

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Commands;
 
 use Illuminate\Console\Command;
-use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
+use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 
 final class AssignRoleCommand extends Command
@@ -38,6 +38,7 @@ final class AssignRoleCommand extends Command
     public function handle(
         DelegationServiceInterface $delegationService,
         RoleRepositoryInterface $roleRepository,
+        UserRepositoryInterface $userRepository,
         DelegationAuditInterface $audit,
     ): int {
         /** @var string $delegatorId */
@@ -49,33 +50,18 @@ final class AssignRoleCommand extends Command
         $byId = (bool) $this->option('by-id');
         $force = (bool) $this->option('force');
 
-        /** @var string $userModel */
-        $userModel = config('permission-delegation.user_model', 'App\\Models\\User');
-
         // Find delegator
-        $delegator = $userModel::find($delegatorId);
+        $delegator = $userRepository->findById($delegatorId);
         if ($delegator === null) {
             $this->error("Delegator user with ID {$delegatorId} not found.");
 
             return self::FAILURE;
         }
 
-        if (! $delegator instanceof DelegatableUserInterface) {
-            $this->error('Delegator does not implement DelegatableUserInterface.');
-
-            return self::FAILURE;
-        }
-
         // Find target
-        $target = $userModel::find($targetId);
+        $target = $userRepository->findById($targetId);
         if ($target === null) {
             $this->error("Target user with ID {$targetId} not found.");
-
-            return self::FAILURE;
-        }
-
-        if (! $target instanceof DelegatableUserInterface) {
-            $this->error('Target does not implement DelegatableUserInterface.');
 
             return self::FAILURE;
         }
@@ -104,8 +90,24 @@ final class AssignRoleCommand extends Command
         try {
             if ($force) {
                 // SECURITY: Forced assignment bypasses delegation checks
-                // This should only be used by system administrators via CLI
-                $this->warn('⚠️  SECURITY: Bypassing delegation authorization checks (--force)');
+                // Requires explicit opt-in via config for safety
+                if (! config('permission-delegation.allow_force_assign', false)) {
+                    $this->error('Force assignment is disabled.');
+                    $this->line('Set DELEGATION_ALLOW_FORCE_ASSIGN=true in your environment to enable.');
+                    $this->newLine();
+                    $this->warn('This is a security feature. Only enable if you understand the implications.');
+
+                    return self::FAILURE;
+                }
+
+                $this->warn('SECURITY WARNING: Bypassing delegation authorization checks (--force)');
+
+                // Require explicit confirmation for force operations
+                if (! $this->confirm('Are you sure you want to bypass authorization? This action is audited.')) {
+                    $this->info('Operation cancelled.');
+
+                    return self::SUCCESS;
+                }
 
                 // Direct role assignment bypassing delegation checks
                 $roleRepository->assignToUser($target, $role);

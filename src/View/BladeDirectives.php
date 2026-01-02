@@ -9,16 +9,19 @@ use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 
-final class BladeDirectives
+/**
+ * Registers Blade directives for delegation permission checks.
+ */
+final readonly class BladeDirectives
 {
-    public static function register(): void
+    public function register(): void
     {
-        self::registerCanDelegate();
-        self::registerCanAssignRole();
-        self::registerCanManageUser();
+        $this->registerCanDelegate();
+        $this->registerCanAssignRole();
+        $this->registerCanManageUser();
     }
 
-    private static function registerCanDelegate(): void
+    private function registerCanDelegate(): void
     {
         Blade::if('canDelegate', static function (): bool {
             $user = auth()->user();
@@ -31,7 +34,7 @@ final class BladeDirectives
         });
     }
 
-    private static function registerCanAssignRole(): void
+    private function registerCanAssignRole(): void
     {
         Blade::if('canAssignRole', static function (string $roleName): bool {
             $user = auth()->user();
@@ -40,7 +43,8 @@ final class BladeDirectives
                 return false;
             }
 
-            $role = app(RoleRepositoryInterface::class)->findByName($roleName);
+            $roleRepository = app(RoleRepositoryInterface::class);
+            $role = $roleRepository->findByName($roleName);
 
             if ($role === null) {
                 return false;
@@ -50,7 +54,7 @@ final class BladeDirectives
         });
     }
 
-    private static function registerCanManageUser(): void
+    private function registerCanManageUser(): void
     {
         Blade::if('canManageUser', static function (DelegatableUserInterface $targetUser): bool {
             $user = auth()->user();

@@ -37,7 +37,7 @@ use Ordain\Delegation\Contracts\RoleInterface;
 trait HasDelegation
 {
     /**
-     * Delegation field casts - defined statically to avoid per-instance allocation.
+     * Delegation field casts.
      *
      * @var array<string, string>
      */
@@ -146,8 +146,10 @@ trait HasDelegation
      */
     public function assignableRoles(): BelongsToMany
     {
-        $roleModel = config('permission-delegation.role_model', 'Spatie\\Permission\\Models\\Role');
-        $pivotTable = config('permission-delegation.tables.user_assignable_roles', 'user_assignable_roles');
+        /** @var string $roleModel */
+        $roleModel = $this->getDelegationConfig('role_model');
+        /** @var string $pivotTable */
+        $pivotTable = $this->getDelegationConfig('user_assignable_roles');
 
         return $this->belongsToMany($roleModel, $pivotTable, 'user_id', 'role_id')
             ->withTimestamps();
@@ -158,11 +160,26 @@ trait HasDelegation
      */
     public function assignablePermissions(): BelongsToMany
     {
-        $permissionModel = config('permission-delegation.permission_model', 'Spatie\\Permission\\Models\\Permission');
-        $pivotTable = config('permission-delegation.tables.user_assignable_permissions', 'user_assignable_permissions');
+        /** @var string $permissionModel */
+        $permissionModel = $this->getDelegationConfig('permission_model');
+        /** @var string $pivotTable */
+        $pivotTable = $this->getDelegationConfig('user_assignable_permissions');
 
         return $this->belongsToMany($permissionModel, $pivotTable, 'user_id', 'permission_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the count of users created by this user (cached per request).
+     */
+    public function getCreatedUsersCount(): int
+    {
+        // Use relationship count if already loaded, otherwise query
+        if ($this->relationLoaded('createdUsers')) {
+            return $this->createdUsers->count();
+        }
+
+        return $this->createdUsers()->count();
     }
 
     /**
@@ -176,7 +193,7 @@ trait HasDelegation
             return false;
         }
 
-        return $this->createdUsers()->count() >= $max;
+        return $this->getCreatedUsersCount() >= $max;
     }
 
     /**
@@ -190,7 +207,7 @@ trait HasDelegation
             return null;
         }
 
-        return max(0, $max - $this->createdUsers()->count());
+        return max(0, $max - $this->getCreatedUsersCount());
     }
 
     /**
@@ -292,5 +309,19 @@ trait HasDelegation
             : $creator;
 
         return $query->where('created_by_user_id', $creatorId);
+    }
+
+    /**
+     * Get delegation config value.
+     */
+    private function getDelegationConfig(string $key): mixed
+    {
+        return match ($key) {
+            'role_model' => config('permission-delegation.role_model', 'Spatie\\Permission\\Models\\Role'),
+            'permission_model' => config('permission-delegation.permission_model', 'Spatie\\Permission\\Models\\Permission'),
+            'user_assignable_roles' => config('permission-delegation.tables.user_assignable_roles', 'user_assignable_roles'),
+            'user_assignable_permissions' => config('permission-delegation.tables.user_assignable_permissions', 'user_assignable_permissions'),
+            default => null,
+        };
     }
 }

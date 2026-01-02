@@ -9,6 +9,9 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    // Enable force assign for tests that use --force flag
+    config(['permission-delegation.allow_force_assign' => true]);
+
     $this->admin = User::create([
         'name' => 'Admin',
         'email' => 'admin@example.com',
@@ -33,6 +36,10 @@ describe('AssignRoleCommand', function (): void {
             'role' => 'editor',
             '--force' => true,
         ])
+            ->expectsConfirmation(
+                'Are you sure you want to bypass authorization? This action is audited.',
+                'yes',
+            )
             ->assertSuccessful()
             ->expectsOutputToContain('assigned');
     });
@@ -78,6 +85,10 @@ describe('AssignRoleCommand', function (): void {
             '--by-id' => true,
             '--force' => true,
         ])
+            ->expectsConfirmation(
+                'Are you sure you want to bypass authorization? This action is audited.',
+                'yes',
+            )
             ->assertSuccessful();
     });
 
@@ -118,5 +129,33 @@ describe('AssignRoleCommand', function (): void {
                 'yes',
             )
             ->assertSuccessful();
+    });
+
+    it('cancels force operation when user declines security confirmation', function (): void {
+        $this->artisan('delegation:assign', [
+            'delegator' => $this->admin->id,
+            'target' => $this->target->id,
+            'role' => 'editor',
+            '--force' => true,
+        ])
+            ->expectsConfirmation(
+                'Are you sure you want to bypass authorization? This action is audited.',
+                'no',
+            )
+            ->assertSuccessful()
+            ->expectsOutputToContain('Operation cancelled');
+    });
+
+    it('fails when force assign is disabled in config', function (): void {
+        config(['permission-delegation.allow_force_assign' => false]);
+
+        $this->artisan('delegation:assign', [
+            'delegator' => $this->admin->id,
+            'target' => $this->target->id,
+            'role' => 'editor',
+            '--force' => true,
+        ])
+            ->assertFailed()
+            ->expectsOutputToContain('Force assignment is disabled');
     });
 });

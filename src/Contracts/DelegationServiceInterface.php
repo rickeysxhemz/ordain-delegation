@@ -172,4 +172,56 @@ interface DelegationServiceInterface
         array $roles = [],
         array $permissions = [],
     ): array;
+
+    /**
+     * Assign multiple roles through delegation in a single transaction.
+     *
+     * @param  array<RoleInterface>  $roles
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function delegateRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void;
+
+    /**
+     * Grant multiple permissions through delegation in a single transaction.
+     *
+     * @param  array<PermissionInterface>  $permissions
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function delegatePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void;
+
+    /**
+     * Revoke multiple roles through delegation in a single transaction.
+     *
+     * @param  array<RoleInterface>  $roles
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function revokeRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void;
+
+    /**
+     * Revoke multiple permissions through delegation in a single transaction.
+     *
+     * @param  array<PermissionInterface>  $permissions
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function revokePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void;
 }

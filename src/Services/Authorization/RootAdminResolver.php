@@ -22,14 +22,7 @@ final readonly class RootAdminResolver implements RootAdminResolverInterface
             return false;
         }
 
-        $roles = $this->roleRepository->getUserRoles($user);
-
-        foreach ($roles as $role) {
-            if ($role->getRoleName() === $this->roleIdentifier) {
-                return true;
-            }
-        }
-
-        return false;
+        // O(1) database query instead of O(n) PHP iteration
+        return $this->roleRepository->userHasRoleByName($user, $this->roleIdentifier);
     }
 }

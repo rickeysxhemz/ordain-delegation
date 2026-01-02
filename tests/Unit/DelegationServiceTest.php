@@ -630,4 +630,168 @@ describe('DelegationService', function (): void {
             $this->service->setDelegationScope($user, $scope);
         });
     });
+
+    describe('delegateRoles', function (): void {
+        it('does nothing when roles array is empty', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+
+            $this->transactionManager->shouldNotReceive('transaction');
+
+            $this->service->delegateRoles($delegator, $target, []);
+        });
+
+        it('delegates multiple roles in transaction', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role1 = createMockRole(1, 'editor');
+            $role2 = createMockRole(2, 'moderator');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $role1, $target)
+                ->andReturn(true);
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $role2, $target)
+                ->andReturn(true);
+
+            $this->roleRepository->shouldReceive('assignToUser')
+                ->with($target, $role1)
+                ->once();
+            $this->roleRepository->shouldReceive('assignToUser')
+                ->with($target, $role2)
+                ->once();
+
+            $this->audit->shouldReceive('logRoleAssigned')->twice();
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->delegateRoles($delegator, $target, [$role1, $role2]);
+        });
+    });
+
+    describe('delegatePermissions', function (): void {
+        it('does nothing when permissions array is empty', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+
+            $this->transactionManager->shouldNotReceive('transaction');
+
+            $this->service->delegatePermissions($delegator, $target, []);
+        });
+
+        it('delegates multiple permissions in transaction', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $perm1 = createMockPermission(1, 'create-posts');
+            $perm2 = createMockPermission(2, 'edit-posts');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $perm1, $target)
+                ->andReturn(true);
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $perm2, $target)
+                ->andReturn(true);
+
+            $this->permissionRepository->shouldReceive('assignToUser')
+                ->with($target, $perm1)
+                ->once();
+            $this->permissionRepository->shouldReceive('assignToUser')
+                ->with($target, $perm2)
+                ->once();
+
+            $this->audit->shouldReceive('logPermissionGranted')->twice();
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->delegatePermissions($delegator, $target, [$perm1, $perm2]);
+        });
+    });
+
+    describe('revokeRoles', function (): void {
+        it('does nothing when roles array is empty', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+
+            $this->transactionManager->shouldNotReceive('transaction');
+
+            $this->service->revokeRoles($delegator, $target, []);
+        });
+
+        it('revokes multiple roles in transaction', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role1 = createMockRole(1, 'editor');
+            $role2 = createMockRole(2, 'moderator');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->with($delegator, $role1, $target)
+                ->andReturn(true);
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->with($delegator, $role2, $target)
+                ->andReturn(true);
+
+            $this->roleRepository->shouldReceive('removeFromUser')
+                ->with($target, $role1)
+                ->once();
+            $this->roleRepository->shouldReceive('removeFromUser')
+                ->with($target, $role2)
+                ->once();
+
+            $this->audit->shouldReceive('logRoleRevoked')->twice();
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->revokeRoles($delegator, $target, [$role1, $role2]);
+        });
+    });
+
+    describe('revokePermissions', function (): void {
+        it('does nothing when permissions array is empty', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+
+            $this->transactionManager->shouldNotReceive('transaction');
+
+            $this->service->revokePermissions($delegator, $target, []);
+        });
+
+        it('revokes multiple permissions in transaction', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $perm1 = createMockPermission(1, 'create-posts');
+            $perm2 = createMockPermission(2, 'edit-posts');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->with($delegator, $perm1, $target)
+                ->andReturn(true);
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->with($delegator, $perm2, $target)
+                ->andReturn(true);
+
+            $this->permissionRepository->shouldReceive('removeFromUser')
+                ->with($target, $perm1)
+                ->once();
+            $this->permissionRepository->shouldReceive('removeFromUser')
+                ->with($target, $perm2)
+                ->once();
+
+            $this->audit->shouldReceive('logPermissionRevoked')->twice();
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->revokePermissions($delegator, $target, [$perm1, $perm2]);
+        });
+    });
 });

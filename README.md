@@ -1,4 +1,4 @@
-# Permission Delegation
+# Permission Delegation for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/rickeysxhemz/ordain-delegation/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/rickeysxhemz/ordain-delegation/actions?query=workflow%3Atests+branch%3Amain)
@@ -6,39 +6,55 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
 [![License](https://img.shields.io/packagist/l/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
 
-Scoped authority delegation for Laravel. Enforces hierarchical permission boundaries where authority flows downward—users delegate subsets of their own grants, never more. Native escalation prevention with spatie/laravel-permission integration.
+**Scoped authority delegation for Laravel.** Enforce hierarchical permission boundaries where authority flows downward—users delegate subsets of their own grants, never more. Native escalation prevention with [spatie/laravel-permission](https://github.com/spatie/laravel-permission) integration.
+
+## The Problem
+
+Traditional RBAC answers: *"What can this user do?"*
+
+This package answers: *"What can this user **grant to others**?"*
+
+Without delegation control, a team lead could assign admin roles, create unlimited users, or manage users outside their hierarchy. This package prevents that.
 
 ## Features
 
-- User creation limits and quotas
-- Role and permission delegation
-- Hierarchical user management
-- Super admin bypass
-- Audit logging
-- Built-in caching
-- Domain events
-- Artisan commands
-- Route middleware
-- Octane compatible
+- **Hierarchical user management** - Users only manage users they created
+- **Role & permission delegation** - Control which roles/permissions users can assign
+- **User creation quotas** - Limit how many users each manager can create
+- **Native escalation prevention** - Cannot grant more than you have
+- **Root admin bypass** - Configurable super-user override
+- **Comprehensive audit logging** - Track all delegation actions
+- **Domain events** - React to delegation changes
+- **Built-in caching** - Optimized for performance
+- **Blade directives & route macros** - Convenient view and routing helpers
+- **Artisan commands** - CLI tools for management
+- **Octane compatible** - Ready for high-performance deployments
 
 ## Requirements
 
-- PHP 8.2, 8.3, or 8.4
+- PHP 8.2+
 - Laravel 11.x or 12.x
-- spatie/laravel-permission ^6.0
+- [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^6.0
 
 ## Installation
+
+Install the package via Composer:
 
 ```bash
 composer require ordain/delegation
 ```
 
-Publish the configuration and migrations:
+Publish and run the migrations:
+
+```bash
+php artisan vendor:publish --tag=delegation-migrations
+php artisan migrate
+```
+
+Publish the configuration file:
 
 ```bash
 php artisan vendor:publish --tag=delegation-config
-php artisan vendor:publish --tag=delegation-migrations
-php artisan migrate
 ```
 
 Add the trait to your User model:
@@ -50,170 +66,132 @@ use Ordain\Delegation\Traits\HasDelegation;
 class User extends Authenticatable implements DelegatableUserInterface
 {
     use HasDelegation;
+
+    protected $fillable = [
+        // ... your fields
+        'can_manage_users',
+        'max_manageable_users',
+        'created_by_user_id',
+    ];
 }
 ```
 
-## Usage
+## Quick Start
 
-### Using Dependency Injection
-
-```php
-use Ordain\Delegation\Contracts\DelegationServiceInterface;
-
-class UserController extends Controller
-{
-    public function __construct(
-        private readonly DelegationServiceInterface $delegation,
-    ) {}
-
-    public function assignRole(Request $request, User $target): JsonResponse
-    {
-        $delegator = $request->user();
-        $role = Role::find($request->role_id);
-
-        if (! $this->delegation->canAssignRole($delegator, $role, $target)) {
-            abort(403);
-        }
-
-        $this->delegation->delegateRole($delegator, $target, $role);
-
-        return response()->json(['message' => 'Role assigned.']);
-    }
-}
-```
-
-### Using the Facade
+### Check Authorization
 
 ```php
 use Ordain\Delegation\Facades\Delegation;
 
-// Check if user can assign a role
+// Can this user assign a role to another user?
 if (Delegation::canAssignRole($delegator, $role, $target)) {
     Delegation::delegateRole($delegator, $target, $role);
 }
 
-// Check if user can create other users
-if (Delegation::canCreateUsers($delegator)) {
+// Can this user create new users?
+if (Delegation::canCreateUsers($user)) {
     // Create user...
 }
 
-// Get assignable roles for a user
-$roles = Delegation::getAssignableRoles($delegator);
-
-// Get assignable permissions
-$permissions = Delegation::getAssignablePermissions($delegator);
-
-// Check user creation limits
-$remaining = Delegation::getRemainingUserQuota($delegator);
-$hasReachedLimit = Delegation::hasReachedUserLimit($delegator);
+// What roles can this user assign?
+$assignableRoles = Delegation::getAssignableRoles($user);
 ```
 
-## Middleware
-
-The package provides three middleware for protecting routes:
+### Set Delegation Scope
 
 ```php
-use Ordain\Delegation\Http\Middleware\CanDelegateMiddleware;
-use Ordain\Delegation\Http\Middleware\CanAssignRoleMiddleware;
-use Ordain\Delegation\Http\Middleware\CanManageUserMiddleware;
+use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 
-// In your route file
-Route::middleware(CanDelegateMiddleware::class)->group(function () {
-    Route::post('/users/{user}/roles', [UserController::class, 'assignRole']);
-});
+// Define what a manager can delegate
+$scope = new DelegationScope(
+    canManageUsers: true,
+    maxManageableUsers: 10,
+    assignableRoleIds: [1, 2, 3],
+    assignablePermissionIds: [4, 5],
+);
 
-// Or register as route middleware aliases in bootstrap/app.php
-->withMiddleware(function (Middleware $middleware) {
-    $middleware->alias([
-        'can.delegate' => CanDelegateMiddleware::class,
-        'can.assign-role' => CanAssignRoleMiddleware::class,
-        'can.manage-user' => CanManageUserMiddleware::class,
-    ]);
-})
+Delegation::setDelegationScope($manager, $scope);
+```
 
-// Then use in routes
+### Protect Routes
+
+```php
+// Using middleware
 Route::middleware('can.delegate')->group(function () {
-    // Protected routes...
+    Route::post('/users', [UserController::class, 'store']);
 });
+
+Route::middleware('can.assign.role:editor,moderator')
+    ->post('/users/{user}/roles', [RoleController::class, 'store']);
+
+// Using route macros
+Route::post('/users', [UserController::class, 'store'])
+    ->canDelegate();
+
+Route::post('/users/{user}/roles', [RoleController::class, 'store'])
+    ->canAssignRole(['editor', 'moderator']);
 ```
 
-## Artisan Commands
+### Blade Directives
 
-```bash
-# Show delegation scope for a user
-php artisan delegation:show {user_id}
+```blade
+@canDelegate
+    <a href="{{ route('users.create') }}">Create User</a>
+@endCanDelegate
 
-# Assign a role to a user
-php artisan delegation:assign-role {user_id} {role_name}
-
-# Clear delegation cache
-php artisan delegation:cache-reset {user_id?}
-```
-
-## Events
-
-The package dispatches events for all delegation actions:
-
-| Event | Description |
-|-------|-------------|
-| `RoleDelegated` | Fired when a role is assigned to a user |
-| `RoleRevoked` | Fired when a role is revoked from a user |
-| `PermissionGranted` | Fired when a permission is granted to a user |
-| `PermissionRevoked` | Fired when a permission is revoked from a user |
-| `DelegationScopeUpdated` | Fired when a user's delegation scope changes |
-| `UnauthorizedDelegationAttempted` | Fired when an unauthorized delegation is attempted |
-
-### Listening to Events
-
-```php
-use Ordain\Delegation\Events\RoleDelegated;
-
-class SendRoleAssignmentNotification
-{
-    public function handle(RoleDelegated $event): void
-    {
-        $event->delegator;  // User who assigned the role
-        $event->target;     // User who received the role
-        $event->role;       // The role that was assigned
-    }
-}
-```
-
-Register in `EventServiceProvider`:
-
-```php
-protected $listen = [
-    \Ordain\Delegation\Events\RoleDelegated::class => [
-        \App\Listeners\SendRoleAssignmentNotification::class,
-    ],
-];
+@canAssignRole('admin')
+    <option value="admin">Administrator</option>
+@endCanAssignRole
 ```
 
 ## Documentation
 
-- [Core Concepts](docs/concepts.md)
-- [Installation](docs/installation.md)
-- [Configuration](docs/configuration.md)
-- [Usage](docs/usage.md)
-- [Middleware](docs/middleware.md)
-- [Customization](docs/customization.md)
+| Documentation | Description |
+|---------------|-------------|
+| [Installation](docs/installation.md) | Detailed installation and setup guide |
+| [Configuration](docs/configuration.md) | All configuration options explained |
+| [Core Concepts](docs/concepts.md) | Understanding hierarchical delegation |
+| [Basic Usage](docs/basic-usage.md) | Common usage patterns |
+| [Advanced Usage](docs/advanced-usage.md) | Batch operations, validation, caching |
+| [Middleware](docs/middleware.md) | Route protection middleware |
+| [Blade & Routes](docs/blade-and-routes.md) | Blade directives and route macros |
+| [Events](docs/events.md) | Domain events and listeners |
+| [Commands](docs/commands.md) | Artisan console commands |
+| [Customization](docs/customization.md) | Extending the package |
+| [API Reference](docs/api-reference.md) | Complete method reference |
+| [Testing](docs/testing.md) | Testing your implementation |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
+
+## Artisan Commands
+
+```bash
+# Interactive installation wizard
+php artisan delegation:install
+
+# Display user's delegation scope
+php artisan delegation:show {user}
+
+# Assign role via CLI
+php artisan delegation:assign {delegator} {target} {role}
+
+# Clear delegation cache
+php artisan delegation:cache-reset {user?}
+
+# Health check
+php artisan delegation:health
+```
 
 ## Testing
 
 ```bash
 composer test
-composer test-coverage
 ```
 
-## Architecture
+With coverage:
 
-The package follows SOLID principles:
-
-- **Contracts** - All dependencies abstracted behind interfaces
-- **Value Objects** - Immutable `DelegationScope` and `DelegationResult`
-- **Repository Pattern** - Data access abstraction
-- **Adapter Pattern** - Integration with external packages
-- **Dependency Injection** - Constructor injection throughout
+```bash
+composer test-coverage
+```
 
 ## Changelog
 
@@ -221,16 +199,16 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
 
-## Security
+## Security Vulnerabilities
 
-If you discover any security related issues, please email dev@ordain.dev instead of using the issue tracker.
+Please review [our security policy](SECURITY.md) on how to report security vulnerabilities.
 
 ## Credits
 
 - [Waqas Majeed](https://github.com/rickeysxhemz)
-- [All Contributors](https://github.com/rickeysxhemz/ordain-delegation/contributors)
+- [All Contributors](https://github.com/rickeysxhemz/ordain-delegation/graphs/contributors)
 
 ## License
 

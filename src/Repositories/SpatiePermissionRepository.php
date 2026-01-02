@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Repositories;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
@@ -71,7 +72,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
     /**
      * @return Collection<int, PermissionInterface>
      */
-    public function all(?string $guard = null): Collection
+    public function all(?string $guard = null, ?int $limit = 500): Collection
     {
         $query = $this->permissionModelClass::query();
 
@@ -79,7 +80,27 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
             $query->where('guard_name', $guard);
         }
 
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
         return SpatiePermissionAdapter::collection($query->get());
+    }
+
+    /**
+     * @return LazyCollection<int, PermissionInterface>
+     */
+    public function allLazy(?string $guard = null): LazyCollection
+    {
+        $query = $this->permissionModelClass::query();
+
+        if ($guard !== null) {
+            $query->where('guard_name', $guard);
+        }
+
+        return $query->lazy()->map(
+            fn (SpatiePermissionContract $permission): PermissionInterface => SpatiePermissionAdapter::fromModel($permission),
+        );
     }
 
     /**

@@ -4,21 +4,19 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Services\Authorization;
 
+use Ordain\Delegation\Contracts\AuthorizationPipelineInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
-use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
-use Ordain\Delegation\Contracts\RootAdminResolverInterface;
 
 /**
- * Handles all delegation authorization checks.
+ * Handles all delegation authorization checks using the authorization pipeline.
  */
 final readonly class DelegationAuthorizer implements DelegationAuthorizerInterface
 {
     public function __construct(
-        private DelegationRepositoryInterface $delegationRepository,
-        private RootAdminResolverInterface $rootAdminResolver,
+        private AuthorizationPipelineInterface $pipeline,
     ) {}
 
     public function canAssignRole(
@@ -26,19 +24,7 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         RoleInterface $role,
         ?DelegatableUserInterface $target = null,
     ): bool {
-        if ($this->rootAdminResolver->isRootAdmin($delegator)) {
-            return true;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        if ($target !== null && ! $this->canManageUser($delegator, $target)) {
-            return false;
-        }
-
-        return $this->delegationRepository->hasAssignableRole($delegator, $role);
+        return $this->pipeline->canAssignRole($delegator, $role, $target);
     }
 
     public function canAssignPermission(
@@ -46,19 +32,7 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         PermissionInterface $permission,
         ?DelegatableUserInterface $target = null,
     ): bool {
-        if ($this->rootAdminResolver->isRootAdmin($delegator)) {
-            return true;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        if ($target !== null && ! $this->canManageUser($delegator, $target)) {
-            return false;
-        }
-
-        return $this->delegationRepository->hasAssignablePermission($delegator, $permission);
+        return $this->pipeline->canAssignPermission($delegator, $permission, $target);
     }
 
     public function canRevokeRole(
@@ -66,7 +40,7 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         RoleInterface $role,
         DelegatableUserInterface $target,
     ): bool {
-        return $this->canAssignRole($delegator, $role, $target);
+        return $this->pipeline->canAssignRole($delegator, $role, $target);
     }
 
     public function canRevokePermission(
@@ -74,28 +48,13 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         PermissionInterface $permission,
         DelegatableUserInterface $target,
     ): bool {
-        return $this->canAssignPermission($delegator, $permission, $target);
+        return $this->pipeline->canAssignPermission($delegator, $permission, $target);
     }
 
     public function canManageUser(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,
     ): bool {
-        if ($this->rootAdminResolver->isRootAdmin($delegator)) {
-            return true;
-        }
-
-        if ($delegator->getDelegatableIdentifier() === $target->getDelegatableIdentifier()) {
-            return false;
-        }
-
-        if (! $delegator->canManageUsers()) {
-            return false;
-        }
-
-        $creator = $target->getCreator();
-
-        return $creator !== null
-            && $creator->getDelegatableIdentifier() === $delegator->getDelegatableIdentifier();
+        return $this->pipeline->canManageUser($delegator, $target);
     }
 }

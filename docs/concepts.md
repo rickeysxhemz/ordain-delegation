@@ -1,78 +1,81 @@
 # Core Concepts
 
-## What is Authority Delegation?
+Understanding the principles behind hierarchical permission delegation.
 
-Authority delegation is a pattern where users can grant others a **subset** of their own permissions—never more. This creates a natural hierarchy where authority flows downward, and each level can only pass on what it already possesses.
+## What Problem Does This Solve?
 
-## The Problem This Solves
+Traditional RBAC packages like [spatie/laravel-permission](https://github.com/spatie/laravel-permission) answer: *"What can this user do?"*
 
-Traditional RBAC packages (like spatie/laravel-permission) answer: *"What can this user do?"*
+This package answers a different question: *"What can this user **grant to others**?"*
 
-This package answers: *"What can this user grant to others?"*
+### The Privilege Escalation Problem
 
-### Example Scenario
-
-Consider a SaaS platform with regional managers:
+Consider a SaaS platform with team management:
 
 ```
 Super Admin (all permissions)
-    └── Regional Manager A (can manage users in Region A)
-            └── Team Lead (can manage 5 users, assign 'editor' role only)
-                    └── Editor (no delegation rights)
+├── Regional Manager A (manages Region A)
+│   ├── Team Lead 1 (manages 5 users)
+│   │   ├── Editor 1
+│   │   └── Editor 2
+│   └── Team Lead 2 (manages 3 users)
+│       └── Editor 3
+└── Regional Manager B (manages Region B)
+    └── ...
 ```
 
-Without delegation control:
-- Team Lead could assign 'admin' role (privilege escalation)
-- Team Lead could create unlimited users (quota bypass)
-- Team Lead could manage users outside their hierarchy (boundary violation)
+**Without delegation control**, Team Lead 1 could:
+- Assign themselves the "admin" role (privilege escalation)
+- Create unlimited users (quota bypass)
+- Manage Editor 3 who belongs to Team Lead 2 (boundary violation)
+- Grant permissions they don't have authority over
 
-With this package:
-- Team Lead can only assign roles they've been granted to delegate
-- Team Lead is limited to their user creation quota
-- Team Lead can only manage users they created
+**With this package**, Team Lead 1 can only:
+- Assign roles they've been explicitly authorized to delegate
+- Create users up to their quota limit
+- Manage only users they created
+- Grant permissions within their delegation scope
 
 ## Core Principles
 
 ### 1. Downward Authority Flow
 
-Authority only flows downward through the hierarchy. A user cannot:
-- Grant permissions they don't have
-- Assign roles they aren't authorized to delegate
-- Manage users outside their subtree
+Authority flows downward through the hierarchy. Users can only delegate a **subset** of their own delegation scope—never more.
 
 ```php
-// Regional Manager can only delegate what they're allowed to
+// Regional Manager's scope
 $manager->assignableRoles;      // ['team-lead', 'editor']
 $manager->assignablePermissions; // ['view-reports', 'edit-content']
 
-// They CANNOT delegate 'admin' role even if they have it
+// Even if they HAVE the admin role, they cannot delegate it
+$manager->hasRole('admin');  // true
+$manager->assignableRoles;   // Does NOT include 'admin'
 ```
 
-### 2. Native Escalation Prevention
+### 2. Creator-Based Hierarchy
+
+Users form a tree structure based on who created whom:
+
+```php
+// Relationships
+$user->creator;       // The user who created this user
+$user->createdUsers;  // Users created by this user
+
+// Management is scoped to the creator's subtree
+$delegation->canManageUser($teamLead, $editor1); // true (created by team lead)
+$delegation->canManageUser($teamLead, $editor3); // false (created by different team lead)
+```
+
+### 3. Native Escalation Prevention
 
 The package prevents privilege escalation at the service level:
 
 ```php
-// This will fail if delegator doesn't have 'admin' in assignableRoles
-$delegation->canAssignRole($delegator, $adminRole, $target); // false
+// This check considers the delegator's scope, not their roles
+$delegation->canAssignRole($delegator, $adminRole, $target);
 
-// Even if delegator has the role themselves
-$delegator->hasRole('admin'); // true
-$delegation->canAssignRole($delegator, $adminRole, $target); // still false
-```
-
-### 3. Hierarchical User Management
-
-Users form a tree based on who created whom:
-
-```php
-// creator relationship
-$user->creator;        // User who created this user
-$user->createdUsers;   // Users created by this user
-
-// Management is scoped to the subtree
-$delegation->canManageUser($manager, $targetUser);
-// true only if $targetUser is in $manager's subtree
+// Even if the delegator has admin role, they can only assign
+// roles that are in their assignableRoles list
 ```
 
 ### 4. Quota Enforcement
@@ -85,133 +88,194 @@ $scope = new DelegationScope(
     maxManageableUsers: 10,  // null = unlimited
 );
 
-$delegation->hasReachedUserLimit($user);     // true if at limit
-$delegation->getRemainingUserQuota($user);   // remaining slots
+$delegation->hasReachedUserLimit($user);   // true if at limit
+$delegation->getRemainingQuota($user);     // remaining slots
+$delegation->getCreatedUsersCount($user);  // current count
 ```
 
 ## Key Terms
 
 | Term | Definition |
 |------|------------|
-| **Delegator** | User performing the delegation (granting roles/permissions) |
-| **Target** | User receiving the delegation |
-| **Delegation Scope** | The boundaries of what a user can delegate |
-| **Assignable Roles** | Roles a user is authorized to assign to others |
+| **Delegator** | The user performing the delegation (assigning roles/permissions) |
+| **Target** | The user receiving the delegation (being assigned roles/permissions) |
+| **Delegation Scope** | The boundaries of what a user can delegate to others |
+| **Assignable Roles** | Roles a user is authorized to assign to users they manage |
 | **Assignable Permissions** | Permissions a user is authorized to grant |
-| **User Quota** | Maximum users a delegator can create |
+| **User Quota** | Maximum number of users a delegator can create |
+| **Root Admin** | A user who bypasses all delegation checks |
 
-## How It Integrates with Spatie
+## The Delegation Scope
 
-This package works **alongside** spatie/laravel-permission, not replacing it:
-
-```
-spatie/laravel-permission     ordain/delegation
-         │                           │
-         ▼                           ▼
-   "What can I do?"          "What can I grant?"
-         │                           │
-         └───────────┬───────────────┘
-                     ▼
-            Complete authorization
-```
-
-Spatie handles:
-- Role/permission definitions
-- User-role assignments
-- Permission checks (`$user->can()`)
-
-This package handles:
-- Who can assign which roles
-- Who can grant which permissions
-- User creation hierarchies
-- Delegation quotas
-
-## Delegation Scope
-
-The `DelegationScope` value object encapsulates delegation boundaries:
+A `DelegationScope` value object encapsulates what a user can delegate:
 
 ```php
+use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
+
 $scope = new DelegationScope(
-    canManageUsers: true,           // Can create/manage users
-    maxManageableUsers: 10,         // User creation limit
-    assignableRoleIds: [1, 2, 3],   // Role IDs they can assign
-    assignablePermissionIds: [4, 5], // Permission IDs they can grant
+    canManageUsers: true,           // Can create and manage users
+    maxManageableUsers: 10,         // Can create up to 10 users
+    assignableRoleIds: [1, 2, 3],   // Can assign these role IDs
+    assignablePermissionIds: [4, 5], // Can grant these permission IDs
 );
 ```
 
 ### Factory Methods
 
 ```php
-DelegationScope::none();           // No delegation rights
-DelegationScope::unlimited([1,2]); // Full rights with specified roles
+// No delegation rights
+$scope = DelegationScope::none();
+
+// Full delegation rights with specific roles
+$scope = DelegationScope::unlimited([1, 2, 3]);
+
+// Limited quota with roles
+$scope = DelegationScope::limited(maxUsers: 10, roleIds: [1, 2]);
+
+// Using the builder
+$scope = DelegationScope::builder()
+    ->allowUserManagement()
+    ->maxUsers(10)
+    ->withRoles([1, 2, 3])
+    ->withPermissions([4, 5])
+    ->build();
 ```
 
-### Immutable Updates
+### Immutability
+
+Scopes are immutable. Modifications return new instances:
 
 ```php
 $newScope = $scope->withMaxUsers(20);
 $newScope = $scope->withRoles([1, 2, 3, 4]);
+$newScope = $scope->withoutUserManagement();
+
+// Original scope unchanged
+$scope->maxManageableUsers; // Still 10
 ```
 
-## Super Admin Bypass
+## How It Works With Spatie
 
-Configurable super admin role bypasses all delegation checks:
+This package works **alongside** spatie/laravel-permission:
 
-```php
-// config/permission-delegation.php
-'super_admin' => [
-    'enabled' => true,
-    'role' => 'super-admin',
-],
+```
+┌─────────────────────────────────┐
+│     spatie/laravel-permission   │
+│                                 │
+│  "What can this user DO?"       │
+│  - Define roles/permissions     │
+│  - Assign to users              │
+│  - Check with $user->can()      │
+└───────────────┬─────────────────┘
+                │
+                │ integrates with
+                │
+┌───────────────▼─────────────────┐
+│       ordain/delegation         │
+│                                 │
+│  "What can this user GRANT?"    │
+│  - Who can assign which roles   │
+│  - Who can manage whom          │
+│  - Delegation quotas            │
+│  - Audit trail                  │
+└─────────────────────────────────┘
 ```
 
-Super admins can:
-- Assign any role
-- Grant any permission
-- Manage any user
-- Bypass quotas
+**Spatie handles:**
+- Role and permission definitions
+- User-role/permission assignments
+- Permission checks (`$user->can('edit articles')`)
 
-## Audit Trail
-
-All delegation actions are logged:
-
-```php
-// delegation_audit_logs table
-[
-    'action' => 'role_delegated',
-    'performed_by_id' => 1,
-    'target_user_id' => 5,
-    'metadata' => ['role_id' => 3, 'role_name' => 'editor'],
-    'ip_address' => '192.168.1.1',
-    'created_at' => '2025-01-15 10:30:00',
-]
-```
+**This package handles:**
+- Who can assign which roles to whom
+- Who can grant which permissions
+- User creation hierarchies and quotas
+- Delegation audit logging
 
 ## Visual Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Super Admin                          │
-│  Scope: unlimited roles, unlimited users                │
-└─────────────────────┬───────────────────────────────────┘
-                      │ creates
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                Regional Manager                         │
-│  Scope: ['team-lead', 'editor'], max 20 users          │
-└─────────────────────┬───────────────────────────────────┘
-                      │ creates
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Team Lead                             │
-│  Scope: ['editor'], max 5 users                        │
-└─────────────────────┬───────────────────────────────────┘
-                      │ creates
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Editor                              │
-│  Scope: none (cannot delegate)                         │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                       ROOT ADMIN                            │
+│  Scope: Any role, unlimited users                           │
+│  Can manage: Anyone                                         │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ creates & configures
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   REGIONAL MANAGER                          │
+│  Scope: ['team-lead', 'editor'], max 20 users              │
+│  Can manage: Only users they created                        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ creates & configures
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      TEAM LEAD                              │
+│  Scope: ['editor'], max 5 users                            │
+│  Can manage: Only users they created                        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ creates
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        EDITOR                               │
+│  Scope: none (cannot delegate)                              │
+│  Can manage: No one                                         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Each level can only pass down a subset of what they received.
+Each level can only pass down a **subset** of what they received.
+
+## Root Admin Bypass
+
+Users with the configured root admin role bypass all delegation checks:
+
+```php
+// config/permission-delegation.php
+'root_admin' => [
+    'enabled' => true,
+    'role' => 'root-admin',
+],
+```
+
+Root admins can:
+- Assign any role to any user
+- Grant any permission to any user
+- Manage any user regardless of who created them
+- Create unlimited users (bypasses quotas)
+
+## Authorization Pipeline
+
+When checking authorization, the package runs through a pipeline of checks:
+
+1. **CheckRootAdminPipe** - If delegator is root admin, grant access
+2. **CheckUserManagementPipe** - Verify delegator has `can_manage_users = true`
+3. **CheckHierarchyPipe** - Verify delegator created the target user
+4. **CheckRoleInScopePipe** - Verify role/permission is in delegator's scope
+
+If any check fails, the authorization is denied.
+
+## Audit Trail
+
+All delegation actions are automatically logged:
+
+```php
+// Example audit log entry
+[
+    'action' => 'role_assigned',
+    'performed_by_id' => 1,
+    'target_user_id' => 5,
+    'metadata' => [
+        'role_id' => 3,
+        'role_name' => 'editor',
+    ],
+    'ip_address' => '192.168.1.1',
+    'user_agent' => 'Mozilla/5.0...',
+    'created_at' => '2025-01-15 10:30:00',
+]
+```
+
+## Next Steps
+
+- [Basic Usage](basic-usage.md) - Start using the package
+- [Advanced Usage](advanced-usage.md) - Batch operations and validation
+- [API Reference](api-reference.md) - Complete method reference

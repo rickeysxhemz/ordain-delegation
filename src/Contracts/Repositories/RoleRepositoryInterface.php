@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Contracts\Repositories;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 
@@ -36,9 +37,17 @@ interface RoleRepositoryInterface
     /**
      * Get all roles.
      *
+     * @param  int|null  $limit  Maximum roles to return (null = no limit, use with caution)
      * @return Collection<int, RoleInterface>
      */
-    public function all(?string $guard = null): Collection;
+    public function all(?string $guard = null, ?int $limit = 500): Collection;
+
+    /**
+     * Get all roles as a lazy collection for memory-efficient iteration.
+     *
+     * @return LazyCollection<int, RoleInterface>
+     */
+    public function allLazy(?string $guard = null): LazyCollection;
 
     /**
      * Get roles assigned to a user.
@@ -61,6 +70,19 @@ interface RoleRepositoryInterface
      * Check if user has a specific role.
      */
     public function userHasRole(DelegatableUserInterface $user, RoleInterface $role): bool;
+
+    /**
+     * Check if user has a role by name (optimized single query).
+     */
+    public function userHasRoleByName(DelegatableUserInterface $user, string $roleName, ?string $guard = null): bool;
+
+    /**
+     * Find multiple roles by their names.
+     *
+     * @param  array<string>  $names
+     * @return Collection<int, RoleInterface>
+     */
+    public function findByNames(array $names, ?string $guard = null): Collection;
 
     /**
      * Sync roles for a user (replace all).

@@ -1,10 +1,14 @@
 # Installation
 
+This guide covers installing and configuring the Permission Delegation package for Laravel.
+
 ## Requirements
 
-- PHP 8.2, 8.3, or 8.4
-- Laravel 11.x or 12.x
-- spatie/laravel-permission ^6.0
+| Requirement | Version |
+|-------------|---------|
+| PHP | 8.2, 8.3, or 8.4 |
+| Laravel | 11.x or 12.x |
+| spatie/laravel-permission | ^6.0 |
 
 ## Install via Composer
 
@@ -12,9 +16,10 @@
 composer require ordain/delegation
 ```
 
-The service provider will be auto-discovered. If not, register it manually in `bootstrap/providers.php`:
+The service provider is auto-discovered. If auto-discovery is disabled, register it manually:
 
 ```php
+// bootstrap/providers.php
 return [
     // ...
     Ordain\Delegation\Providers\DelegationServiceProvider::class,
@@ -27,6 +32,8 @@ return [
 php artisan vendor:publish --tag=delegation-config
 ```
 
+This creates `config/permission-delegation.php`. See [Configuration](configuration.md) for all options.
+
 ## Publish and Run Migrations
 
 ```bash
@@ -36,7 +43,7 @@ php artisan migrate
 
 ## User Model Setup
 
-Add the `HasDelegation` trait and implement `DelegatableUserInterface`:
+Your User model must implement `DelegatableUserInterface`. The easiest way is using the `HasDelegation` trait:
 
 ```php
 <?php
@@ -46,9 +53,11 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Traits\HasDelegation;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements DelegatableUserInterface
 {
+    use HasRoles;
     use HasDelegation;
 
     protected $fillable = [
@@ -61,28 +70,60 @@ class User extends Authenticatable implements DelegatableUserInterface
     ];
 
     protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
         'can_manage_users' => 'boolean',
         'max_manageable_users' => 'integer',
     ];
 }
 ```
 
+> **Important:** You must add `can_manage_users`, `max_manageable_users`, and `created_by_user_id` to your `$fillable` array if you want to mass-assign these fields.
+
 ## Database Schema
 
 The migrations create the following:
 
-### Columns added to `users` table
+### Columns Added to `users` Table
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `can_manage_users` | boolean | Whether user can create/manage other users |
-| `max_manageable_users` | integer (nullable) | Maximum users this user can create |
-| `created_by_user_id` | foreign key (nullable) | Reference to creator user |
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `can_manage_users` | boolean | `false` | Whether user can create/manage other users |
+| `max_manageable_users` | integer | `null` | Maximum users this user can create (`null` = unlimited) |
+| `created_by_user_id` | foreign key | `null` | Reference to the user who created this user |
 
-### New tables
+### New Tables
 
 | Table | Purpose |
 |-------|---------|
-| `user_assignable_roles` | Roles a user can assign |
-| `user_assignable_permissions` | Permissions a user can grant |
-| `delegation_audit_logs` | Audit trail of delegation actions |
+| `user_assignable_roles` | Pivot table linking users to roles they can assign |
+| `user_assignable_permissions` | Pivot table linking users to permissions they can grant |
+| `delegation_audit_logs` | Audit trail of all delegation actions |
+
+## Installation Command
+
+For a guided installation, use the install command:
+
+```bash
+php artisan delegation:install
+```
+
+This interactive wizard will:
+1. Publish the configuration file
+2. Publish the migrations
+3. Run the migrations
+4. Guide you through initial setup
+
+## Verify Installation
+
+Run the health check command to verify everything is configured correctly:
+
+```bash
+php artisan delegation:health
+```
+
+## Next Steps
+
+- [Configuration](configuration.md) - Configure the package for your needs
+- [Core Concepts](concepts.md) - Understand how hierarchical delegation works
+- [Basic Usage](basic-usage.md) - Start using the package

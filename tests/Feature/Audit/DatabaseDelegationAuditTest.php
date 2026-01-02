@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Services\Audit\AuditContext;
 use Ordain\Delegation\Services\Audit\DatabaseDelegationAudit;
 use Ordain\Delegation\Tests\Fixtures\User;
+use ReflectionClass;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -137,5 +139,45 @@ describe('DatabaseDelegationAudit', function (): void {
         expect($metadata)->toHaveKey('attempted_action');
         expect($metadata['attempted_action'])->toBe('assign_role');
         expect($metadata)->toHaveKey('role_id');
+    });
+
+    it('throws exception for invalid table name', function (): void {
+        new DatabaseDelegationAudit('table-with-dashes', $this->context);
+    })->throws(InvalidArgumentException::class, 'Invalid table name');
+
+    it('throws exception for table name starting with number', function (): void {
+        new DatabaseDelegationAudit('123table', $this->context);
+    })->throws(InvalidArgumentException::class, 'Invalid table name');
+
+    it('throws exception for table name with special characters', function (): void {
+        new DatabaseDelegationAudit('table.name', $this->context);
+    })->throws(InvalidArgumentException::class, 'Invalid table name');
+
+    it('accepts valid table names', function (): void {
+        $audit1 = new DatabaseDelegationAudit('valid_table_name', $this->context);
+        $audit2 = new DatabaseDelegationAudit('_underscore_start', $this->context);
+        $audit3 = new DatabaseDelegationAudit('TableName123', $this->context);
+
+        expect($audit1)->toBeInstanceOf(DatabaseDelegationAudit::class);
+        expect($audit2)->toBeInstanceOf(DatabaseDelegationAudit::class);
+        expect($audit3)->toBeInstanceOf(DatabaseDelegationAudit::class);
+    });
+
+    it('handles non-serializable metadata gracefully', function (): void {
+        // Create a resource that cannot be JSON encoded
+        $resource = fopen('php://memory', 'r');
+
+        // Use reflection to call safeJsonEncode with invalid data
+        $reflection = new ReflectionClass($this->audit);
+        $method = $reflection->getMethod('safeJsonEncode');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($this->audit, ['resource' => $resource]);
+        $decoded = json_decode($result, true);
+
+        fclose($resource);
+
+        expect($decoded)->toHaveKey('_encoding_error');
+        expect($decoded['_encoding_error'])->toBe('Failed to encode metadata');
     });
 });

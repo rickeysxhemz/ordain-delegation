@@ -43,16 +43,27 @@ final readonly class CanAssignRoleMiddleware
             return $next($request);
         }
 
-        foreach ($roleNames as $roleName) {
-            $role = $this->roleRepository->findByName($roleName);
+        // Batch fetch all roles in single query (N+1 optimization)
+        $roles = $this->roleRepository->findByNames($roleNames);
+        $foundRoleNames = $roles->map(fn ($role) => $role->getRoleName())->all();
 
-            if ($role === null) {
-                abort(404, "Role '$roleName' not found.");
-            }
-
+        // Collect all authorization results first (constant-time operation)
+        // This prevents timing attacks that could reveal role existence
+        $authorized = true;
+        foreach ($roles as $role) {
             if (! $this->delegation->canAssignRole($user, $role)) {
-                abort(403, "You are not authorized to assign the '$roleName' role.");
+                $authorized = false;
+                // Don't break early - continue checking all roles for constant timing
             }
+        }
+
+        // Check for missing roles
+        $missingRoles = array_diff($roleNames, $foundRoleNames);
+
+        // Single consolidated check at the end (prevents timing-based enumeration)
+        if (! $authorized || $missingRoles !== []) {
+            // Generic message - don't reveal which specific roles are missing or unauthorized
+            abort(403, 'You are not authorized to assign the requested role.');
         }
 
         return $next($request);

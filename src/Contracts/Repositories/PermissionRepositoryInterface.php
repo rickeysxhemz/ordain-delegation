@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Contracts\Repositories;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 
@@ -36,9 +37,17 @@ interface PermissionRepositoryInterface
     /**
      * Get all permissions.
      *
+     * @param  int|null  $limit  Maximum permissions to return (null = no limit, use with caution)
      * @return Collection<int, PermissionInterface>
      */
-    public function all(?string $guard = null): Collection;
+    public function all(?string $guard = null, ?int $limit = 500): Collection;
+
+    /**
+     * Get all permissions as a lazy collection for memory-efficient iteration.
+     *
+     * @return LazyCollection<int, PermissionInterface>
+     */
+    public function allLazy(?string $guard = null): LazyCollection;
 
     /**
      * Get permissions assigned directly to a user.

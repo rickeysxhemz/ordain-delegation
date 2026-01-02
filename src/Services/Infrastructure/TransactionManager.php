@@ -16,14 +16,24 @@ final readonly class TransactionManager implements TransactionManagerInterface
 {
     private string $userTable;
 
-    public function __construct(?string $userModelClass = null)
+    /**
+     * @param  string|null  $userModelClass  The user model class (for table resolution)
+     * @param  string|null  $userTable  Explicit table name (takes precedence over model resolution)
+     */
+    public function __construct(?string $userModelClass = null, ?string $userTable = null)
     {
+        // Use explicit table name if provided (avoids model instantiation)
+        if ($userTable !== null) {
+            $this->userTable = $userTable;
+
+            return;
+        }
+
+        // Fallback to model resolution
         $modelClass = $userModelClass ?? 'App\\Models\\User';
 
-        if (class_exists($modelClass)) {
-            /** @var Model $model */
-            $model = new $modelClass;
-            $this->userTable = $model->getTable();
+        if (class_exists($modelClass) && is_subclass_of($modelClass, Model::class)) {
+            $this->userTable = (new $modelClass)->getTable();
         } else {
             $this->userTable = 'users';
         }

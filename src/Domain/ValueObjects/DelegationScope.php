@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Domain\ValueObjects;
 
 use InvalidArgumentException;
+use Ordain\Delegation\Domain\Builders\DelegationScopeBuilder;
 
 /**
  * Value object representing a user's delegation scope.
@@ -40,6 +41,14 @@ final readonly class DelegationScope
 
         // Validate and normalize permission IDs (filter invalid, remove duplicates)
         $this->assignablePermissionIds = self::normalizeIds($assignablePermissionIds, 'permission');
+    }
+
+    /**
+     * Create a builder for fluent scope construction.
+     */
+    public static function builder(): DelegationScopeBuilder
+    {
+        return DelegationScopeBuilder::create();
     }
 
     /**
@@ -118,33 +127,46 @@ final readonly class DelegationScope
     /**
      * Normalize an array of IDs by filtering invalid values and removing duplicates.
      *
+     * Optimized to avoid string concatenation in the loop by using type-prefixed
+     * array keys directly.
+     *
      * @param  array<mixed>  $ids
      * @return array<int|string>
      */
     private static function normalizeIds(array $ids, string $type): array
     {
+        // Early return for empty arrays
+        if ($ids === []) {
+            return [];
+        }
+
+        $intSeen = [];
+        $stringSeen = [];
         $normalized = [];
-        $seen = [];
 
         foreach ($ids as $id) {
-            // Skip non-integer/string values
-            if (! is_int($id) && ! is_string($id)) {
+            // Type validation
+            if (is_int($id)) {
+                // Skip duplicates using integer key directly
+                if (isset($intSeen[$id])) {
+                    continue;
+                }
+                $intSeen[$id] = true;
+                $normalized[] = $id;
+            } elseif (is_string($id)) {
+                // Skip empty strings
+                if ($id === '') {
+                    continue;
+                }
+                // Skip duplicates using string key directly
+                if (isset($stringSeen[$id])) {
+                    continue;
+                }
+                $stringSeen[$id] = true;
+                $normalized[] = $id;
+            } else {
                 throw new InvalidArgumentException("Assignable {$type} IDs must be integers or strings.");
             }
-
-            // Skip empty strings
-            if ($id === '') {
-                continue;
-            }
-
-            // Skip duplicates
-            $key = is_int($id) ? "i:{$id}" : "s:{$id}";
-            if (isset($seen[$key])) {
-                continue;
-            }
-
-            $seen[$key] = true;
-            $normalized[] = $id;
         }
 
         return $normalized;

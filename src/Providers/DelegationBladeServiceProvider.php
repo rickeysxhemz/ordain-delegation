@@ -14,6 +14,6 @@ final class DelegationBladeServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        BladeDirectives::register();
+        (new BladeDirectives)->register();
     }
 }

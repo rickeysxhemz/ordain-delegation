@@ -44,31 +44,40 @@ describe('CanAssignRoleMiddleware', function (): void {
         expect($response->getContent())->toBe('OK');
     });
 
-    it('aborts with 404 when role not found', function (): void {
+    it('aborts with 403 when role not found', function (): void {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $this->request->shouldReceive('user')->andReturn($user);
-        $this->roleRepository->shouldReceive('findByName')->with('admin')->andReturn(null);
+        // Returns empty collection - role not found
+        $this->roleRepository->shouldReceive('findByNames')
+            ->with(['admin'])
+            ->andReturn(collect());
 
         $this->middleware->handle($this->request, $this->next, 'admin');
-    })->throws(HttpException::class, "Role 'admin' not found.");
+    })->throws(HttpException::class, 'You are not authorized to assign the requested role.');
 
     it('aborts with 403 when user cannot assign role', function (): void {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $role = Mockery::mock(RoleInterface::class);
+        $role->shouldReceive('getRoleName')->andReturn('admin');
 
         $this->request->shouldReceive('user')->andReturn($user);
-        $this->roleRepository->shouldReceive('findByName')->with('admin')->andReturn($role);
+        $this->roleRepository->shouldReceive('findByNames')
+            ->with(['admin'])
+            ->andReturn(collect([$role]));
         $this->delegation->shouldReceive('canAssignRole')->with($user, $role)->andReturn(false);
 
         $this->middleware->handle($this->request, $this->next, 'admin');
-    })->throws(HttpException::class, "You are not authorized to assign the 'admin' role.");
+    })->throws(HttpException::class, 'You are not authorized to assign the requested role.');
 
     it('allows request when user can assign role', function (): void {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $role = Mockery::mock(RoleInterface::class);
+        $role->shouldReceive('getRoleName')->andReturn('admin');
 
         $this->request->shouldReceive('user')->andReturn($user);
-        $this->roleRepository->shouldReceive('findByName')->with('admin')->andReturn($role);
+        $this->roleRepository->shouldReceive('findByNames')
+            ->with(['admin'])
+            ->andReturn(collect([$role]));
         $this->delegation->shouldReceive('canAssignRole')->with($user, $role)->andReturn(true);
 
         $response = $this->middleware->handle($this->request, $this->next, 'admin');
@@ -80,10 +89,13 @@ describe('CanAssignRoleMiddleware', function (): void {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $adminRole = Mockery::mock(RoleInterface::class);
         $editorRole = Mockery::mock(RoleInterface::class);
+        $adminRole->shouldReceive('getRoleName')->andReturn('admin');
+        $editorRole->shouldReceive('getRoleName')->andReturn('editor');
 
         $this->request->shouldReceive('user')->andReturn($user);
-        $this->roleRepository->shouldReceive('findByName')->with('admin')->andReturn($adminRole);
-        $this->roleRepository->shouldReceive('findByName')->with('editor')->andReturn($editorRole);
+        $this->roleRepository->shouldReceive('findByNames')
+            ->with(['admin', 'editor'])
+            ->andReturn(collect([$adminRole, $editorRole]));
         $this->delegation->shouldReceive('canAssignRole')->with($user, $adminRole)->andReturn(true);
         $this->delegation->shouldReceive('canAssignRole')->with($user, $editorRole)->andReturn(true);
 
@@ -92,15 +104,21 @@ describe('CanAssignRoleMiddleware', function (): void {
         expect($response->getContent())->toBe('OK');
     });
 
-    it('aborts on first unauthorized role', function (): void {
+    it('checks all roles for constant timing even when one is unauthorized', function (): void {
         $user = Mockery::mock(DelegatableUserInterface::class);
         $adminRole = Mockery::mock(RoleInterface::class);
         $editorRole = Mockery::mock(RoleInterface::class);
+        $adminRole->shouldReceive('getRoleName')->andReturn('admin');
+        $editorRole->shouldReceive('getRoleName')->andReturn('editor');
 
         $this->request->shouldReceive('user')->andReturn($user);
-        $this->roleRepository->shouldReceive('findByName')->with('admin')->andReturn($adminRole);
+        $this->roleRepository->shouldReceive('findByNames')
+            ->with(['admin', 'editor'])
+            ->andReturn(collect([$adminRole, $editorRole]));
+        // All roles are checked for constant-time operation (timing attack mitigation)
         $this->delegation->shouldReceive('canAssignRole')->with($user, $adminRole)->andReturn(false);
+        $this->delegation->shouldReceive('canAssignRole')->with($user, $editorRole)->andReturn(true);
 
         $this->middleware->handle($this->request, $this->next, 'admin', 'editor');
-    })->throws(HttpException::class, "You are not authorized to assign the 'admin' role.");
+    })->throws(HttpException::class, 'You are not authorized to assign the requested role.');
 });

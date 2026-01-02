@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Collection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
-use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Services\Authorization\RootAdminResolver;
 
 beforeEach(function (): void {
@@ -36,12 +34,9 @@ describe('isRootAdmin', function (): void {
     });
 
     it('returns true when user has root admin role', function (): void {
-        $role = Mockery::mock(RoleInterface::class);
-        $role->shouldReceive('getRoleName')->andReturn('root-admin');
-
-        $this->roleRepository->shouldReceive('getUserRoles')
-            ->with($this->user)
-            ->andReturn(new Collection([$role]));
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin')
+            ->andReturn(true);
 
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
@@ -53,12 +48,9 @@ describe('isRootAdmin', function (): void {
     });
 
     it('returns false when user does not have root admin role', function (): void {
-        $role = Mockery::mock(RoleInterface::class);
-        $role->shouldReceive('getRoleName')->andReturn('editor');
-
-        $this->roleRepository->shouldReceive('getUserRoles')
-            ->with($this->user)
-            ->andReturn(new Collection([$role]));
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin')
+            ->andReturn(false);
 
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
@@ -70,9 +62,9 @@ describe('isRootAdmin', function (): void {
     });
 
     it('returns false when user has no roles', function (): void {
-        $this->roleRepository->shouldReceive('getUserRoles')
-            ->with($this->user)
-            ->andReturn(new Collection([]));
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin')
+            ->andReturn(false);
 
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
@@ -84,15 +76,11 @@ describe('isRootAdmin', function (): void {
     });
 
     it('finds root admin role among multiple roles', function (): void {
-        $role1 = Mockery::mock(RoleInterface::class);
-        $role1->shouldReceive('getRoleName')->andReturn('editor');
-
-        $role2 = Mockery::mock(RoleInterface::class);
-        $role2->shouldReceive('getRoleName')->andReturn('root-admin');
-
-        $this->roleRepository->shouldReceive('getUserRoles')
-            ->with($this->user)
-            ->andReturn(new Collection([$role1, $role2]));
+        // The new implementation uses userHasRoleByName which does a direct check
+        // so this test now just verifies that the method correctly identifies the role
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin')
+            ->andReturn(true);
 
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,

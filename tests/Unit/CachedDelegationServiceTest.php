@@ -283,4 +283,60 @@ describe('CachedDelegationService', function (): void {
 
         $this->service->forgetUserCache($this->delegator);
     });
+
+    it('invalidates cache on delegateRoles', function (): void {
+        $role2 = Mockery::mock(RoleInterface::class);
+        $role2->shouldReceive('getRoleIdentifier')->andReturn(11);
+
+        $this->inner->shouldReceive('delegateRoles')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->role, $role2]);
+
+        // Forget target cache (4 keys) + role cache for each role (2 keys)
+        $this->cache->shouldReceive('forget')->times(6);
+
+        $this->service->delegateRoles($this->delegator, $this->target, [$this->role, $role2]);
+    });
+
+    it('invalidates cache on delegatePermissions', function (): void {
+        $perm2 = Mockery::mock(PermissionInterface::class);
+        $perm2->shouldReceive('getPermissionIdentifier')->andReturn(21);
+
+        $this->inner->shouldReceive('delegatePermissions')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->permission, $perm2]);
+
+        // Forget target cache (4 keys) + permission cache for each permission (2 keys)
+        $this->cache->shouldReceive('forget')->times(6);
+
+        $this->service->delegatePermissions($this->delegator, $this->target, [$this->permission, $perm2]);
+    });
+
+    it('invalidates cache on revokeRoles', function (): void {
+        $role2 = Mockery::mock(RoleInterface::class);
+        $role2->shouldReceive('getRoleIdentifier')->andReturn(11);
+
+        $this->inner->shouldReceive('revokeRoles')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->role, $role2]);
+
+        // Forget target cache (4 keys) + role cache for each role (2 keys)
+        $this->cache->shouldReceive('forget')->times(6);
+
+        $this->service->revokeRoles($this->delegator, $this->target, [$this->role, $role2]);
+    });
+
+    it('invalidates cache on revokePermissions', function (): void {
+        $perm2 = Mockery::mock(PermissionInterface::class);
+        $perm2->shouldReceive('getPermissionIdentifier')->andReturn(21);
+
+        $this->inner->shouldReceive('revokePermissions')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->permission, $perm2]);
+
+        // Forget target cache (4 keys) + permission cache for each permission (2 keys)
+        $this->cache->shouldReceive('forget')->times(6);
+
+        $this->service->revokePermissions($this->delegator, $this->target, [$this->permission, $perm2]);
+    });
 });

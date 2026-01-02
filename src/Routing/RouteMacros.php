@@ -7,7 +7,7 @@ namespace Ordain\Delegation\Routing;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 
-final class RouteMacros
+final readonly class RouteMacros
 {
     public static function register(): void
     {

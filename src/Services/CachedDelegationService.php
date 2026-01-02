@@ -218,6 +218,70 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     }
 
     /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function delegateRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        $this->inner->delegateRoles($delegator, $target, $roles);
+        $this->forgetUserCache($target);
+
+        foreach ($roles as $role) {
+            $this->forgetRoleCache($delegator, $role);
+        }
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function delegatePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        $this->inner->delegatePermissions($delegator, $target, $permissions);
+        $this->forgetUserCache($target);
+
+        foreach ($permissions as $permission) {
+            $this->forgetPermissionCache($delegator, $permission);
+        }
+    }
+
+    /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function revokeRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        $this->inner->revokeRoles($delegator, $target, $roles);
+        $this->forgetUserCache($target);
+
+        foreach ($roles as $role) {
+            $this->forgetRoleCache($delegator, $role);
+        }
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function revokePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        $this->inner->revokePermissions($delegator, $target, $permissions);
+        $this->forgetUserCache($target);
+
+        foreach ($permissions as $permission) {
+            $this->forgetPermissionCache($delegator, $permission);
+        }
+    }
+
+    /**
      * Clear all cached data for a user.
      */
     public function forgetUserCache(DelegatableUserInterface $user): void

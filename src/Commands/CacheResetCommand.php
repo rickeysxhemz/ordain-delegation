@@ -8,7 +8,8 @@ use Illuminate\Cache\Repository;
 use Illuminate\Cache\TaggableStore;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
-use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\DelegationServiceInterface;
+use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
 use Ordain\Delegation\Services\CachedDelegationService;
 
 final class CacheResetCommand extends Command
@@ -32,8 +33,11 @@ final class CacheResetCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(CacheRepository $cache): int
-    {
+    public function handle(
+        CacheRepository $cache,
+        DelegationServiceInterface $delegationService,
+        UserRepositoryInterface $userRepository,
+    ): int {
         /** @var string|null $userId */
         $userId = $this->argument('user');
         $clearAll = (bool) $this->option('all');
@@ -41,11 +45,11 @@ final class CacheResetCommand extends Command
         $prefix = config('permission-delegation.cache.prefix', 'delegation_');
 
         if ($userId !== null) {
-            return $this->clearUserCache($cache, $userId, $prefix);
+            return $this->clearUserCache($cache, $delegationService, $userRepository, $userId, $prefix);
         }
 
         if ($clearAll) {
-            return $this->clearAllCache($cache, $prefix);
+            return $this->clearAllCache($cache, $userRepository, $prefix);
         }
 
         $this->info('Delegation Cache Reset');
@@ -65,19 +69,17 @@ final class CacheResetCommand extends Command
     /**
      * Clear cache for a specific user.
      */
-    private function clearUserCache(CacheRepository $cache, string $userId, string $prefix): int
-    {
-        $userModel = config('permission-delegation.user_model', 'App\\Models\\User');
-        $user = $userModel::find($userId);
+    private function clearUserCache(
+        CacheRepository $cache,
+        DelegationServiceInterface $delegationService,
+        UserRepositoryInterface $userRepository,
+        string $userId,
+        string $prefix,
+    ): int {
+        $user = $userRepository->findById($userId);
 
         if ($user === null) {
             $this->error("User with ID {$userId} not found.");
-
-            return self::FAILURE;
-        }
-
-        if (! $user instanceof DelegatableUserInterface) {
-            $this->error('User model does not implement DelegatableUserInterface.');
 
             return self::FAILURE;
         }
@@ -103,7 +105,6 @@ final class CacheResetCommand extends Command
         $this->line("  Keys cleared: {$keysCleared}");
 
         // Check if using CachedDelegationService
-        $delegationService = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class);
         if ($delegationService instanceof CachedDelegationService) {
             $delegationService->forgetUserCache($user);
             $this->line('  <fg=green>CachedDelegationService cache invalidated.</>');
@@ -115,8 +116,11 @@ final class CacheResetCommand extends Command
     /**
      * Attempt to clear all delegation cache.
      */
-    private function clearAllCache(CacheRepository $cache, string $prefix): int
-    {
+    private function clearAllCache(
+        CacheRepository $cache,
+        UserRepositoryInterface $userRepository,
+        string $prefix,
+    ): int {
         $this->warn('Clearing all delegation cache...');
 
         // Check if cache supports tags (Redis, Memcached)
@@ -130,8 +134,7 @@ final class CacheResetCommand extends Command
         // Fallback: Clear known patterns
         $this->line('Cache tags not supported by current driver. Clearing known patterns...');
 
-        $userModel = config('permission-delegation.user_model', 'App\\Models\\User');
-        $users = $userModel::select('id')->get();
+        $userIds = $userRepository->getAllIds();
         $keysCleared = 0;
 
         $cacheTypes = [
@@ -141,12 +144,12 @@ final class CacheResetCommand extends Command
             'can_create_users',
         ];
 
-        $bar = $this->output->createProgressBar($users->count());
+        $bar = $this->output->createProgressBar($userIds->count());
         $bar->start();
 
-        foreach ($users as $user) {
+        foreach ($userIds as $userId) {
             foreach ($cacheTypes as $type) {
-                $key = "{$prefix}{$type}_{$user->id}";
+                $key = "{$prefix}{$type}_{$userId}";
                 if ($cache->forget($key)) {
                     $keysCleared++;
                 }
@@ -158,7 +161,7 @@ final class CacheResetCommand extends Command
         $this->newLine(2);
 
         $this->info('Cache clearing complete.');
-        $this->line("  Users processed: {$users->count()}");
+        $this->line("  Users processed: {$userIds->count()}");
         $this->line("  Keys cleared: {$keysCleared}");
 
         $this->newLine();

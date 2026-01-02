@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Commands;
 
 use Illuminate\Console\Command;
-use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
+use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
 
 final class ShowDelegationCommand extends Command
 {
@@ -29,23 +29,17 @@ final class ShowDelegationCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(DelegationServiceInterface $delegationService): int
-    {
+    public function handle(
+        DelegationServiceInterface $delegationService,
+        UserRepositoryInterface $userRepository,
+    ): int {
         /** @var string $userId */
         $userId = $this->argument('user');
 
-        /** @var string $userModel */
-        $userModel = config('permission-delegation.user_model', 'App\\Models\\User');
-        $user = $userModel::find($userId);
+        $user = $userRepository->findById($userId);
 
         if ($user === null) {
             $this->error("User with ID {$userId} not found.");
-
-            return self::FAILURE;
-        }
-
-        if (! $user instanceof DelegatableUserInterface) {
-            $this->error('User model does not implement DelegatableUserInterface.');
             $this->line('Make sure your User model uses the HasDelegation trait.');
 
             return self::FAILURE;

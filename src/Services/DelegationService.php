@@ -259,4 +259,80 @@ final readonly class DelegationService implements DelegationServiceInterface
     ): array {
         return $this->validator->validate($delegator, $target, $roles, $permissions);
     }
+
+    /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function delegateRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        if ($roles === []) {
+            return;
+        }
+
+        $this->transactionManager->transaction(function () use ($delegator, $target, $roles): void {
+            foreach ($roles as $role) {
+                $this->delegateRole($delegator, $target, $role);
+            }
+        });
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function delegatePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        if ($permissions === []) {
+            return;
+        }
+
+        $this->transactionManager->transaction(function () use ($delegator, $target, $permissions): void {
+            foreach ($permissions as $permission) {
+                $this->delegatePermission($delegator, $target, $permission);
+            }
+        });
+    }
+
+    /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function revokeRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        if ($roles === []) {
+            return;
+        }
+
+        $this->transactionManager->transaction(function () use ($delegator, $target, $roles): void {
+            foreach ($roles as $role) {
+                $this->revokeRole($delegator, $target, $role);
+            }
+        });
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function revokePermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        if ($permissions === []) {
+            return;
+        }
+
+        $this->transactionManager->transaction(function () use ($delegator, $target, $permissions): void {
+            foreach ($permissions as $permission) {
+                $this->revokePermission($delegator, $target, $permission);
+            }
+        });
+    }
 }
