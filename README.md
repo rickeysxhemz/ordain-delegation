@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/rickeysxhemz/ordain-delegation/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/rickeysxhemz/ordain-delegation/actions?query=workflow%3Atests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/rickeysxhemz/ordain-delegation/code-style.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/rickeysxhemz/ordain-delegation/actions?query=workflow%3Acode-style+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
-[![License](https://img.shields.io/packagist/l/ordain/delegation.svg?style=flat-square)](https://packagist.org/packages/ordain/delegation)
+[![License](https://img.shields.io/packagist/l/ordain/delegation.svg?style=flat-square)](https://github.com/rickeysxhemz/ordain-delegation/blob/main/LICENSE)
 
 **Scoped authority delegation for Laravel.** Enforce hierarchical permission boundaries where authority flows downward—users delegate subsets of their own grants, never more. Native escalation prevention with [spatie/laravel-permission](https://github.com/spatie/laravel-permission) integration.
 
