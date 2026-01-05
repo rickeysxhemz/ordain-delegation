@@ -14,7 +14,7 @@ The security of this permission delegation package is taken seriously. If you di
 
 **Please DO NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: **security@ordain.dev**
+Instead, please report them via email to: **dev@waqasmajeed.dev**
 
 Include the following information in your report:
 
