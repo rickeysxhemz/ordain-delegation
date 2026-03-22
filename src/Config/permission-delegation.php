@@ -84,6 +84,7 @@ return [
     'root_admin' => [
         'enabled' => env('DELEGATION_ROOT_ADMIN_BYPASS', true),
         'role' => env('DELEGATION_ROOT_ADMIN_ROLE', 'root-admin'),
+        'guard' => env('DELEGATION_ROOT_ADMIN_GUARD', null),
     ],
 
     /*

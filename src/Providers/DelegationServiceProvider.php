@@ -245,6 +245,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
                 roleRepository: $app->make(RoleRepositoryInterface::class),
                 enabled: (bool) config('permission-delegation.root_admin.enabled', true),
                 roleIdentifier: config('permission-delegation.root_admin.role'),
+                guard: config('permission-delegation.root_admin.guard'),
             ),
         );
 

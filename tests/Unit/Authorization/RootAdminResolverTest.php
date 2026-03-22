@@ -35,7 +35,7 @@ describe('isRootAdmin', function (): void {
 
     it('returns true when user has root admin role', function (): void {
         $this->roleRepository->shouldReceive('userHasRoleByName')
-            ->with($this->user, 'root-admin')
+            ->with($this->user, 'root-admin', null)
             ->andReturn(true);
 
         $resolver = new RootAdminResolver(
@@ -49,7 +49,7 @@ describe('isRootAdmin', function (): void {
 
     it('returns false when user does not have root admin role', function (): void {
         $this->roleRepository->shouldReceive('userHasRoleByName')
-            ->with($this->user, 'root-admin')
+            ->with($this->user, 'root-admin', null)
             ->andReturn(false);
 
         $resolver = new RootAdminResolver(
@@ -63,7 +63,7 @@ describe('isRootAdmin', function (): void {
 
     it('returns false when user has no roles', function (): void {
         $this->roleRepository->shouldReceive('userHasRoleByName')
-            ->with($this->user, 'root-admin')
+            ->with($this->user, 'root-admin', null)
             ->andReturn(false);
 
         $resolver = new RootAdminResolver(
@@ -76,10 +76,8 @@ describe('isRootAdmin', function (): void {
     });
 
     it('finds root admin role among multiple roles', function (): void {
-        // The new implementation uses userHasRoleByName which does a direct check
-        // so this test now just verifies that the method correctly identifies the role
         $this->roleRepository->shouldReceive('userHasRoleByName')
-            ->with($this->user, 'root-admin')
+            ->with($this->user, 'root-admin', null)
             ->andReturn(true);
 
         $resolver = new RootAdminResolver(
@@ -89,5 +87,35 @@ describe('isRootAdmin', function (): void {
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeTrue();
+    });
+
+    it('checks root admin role with specific guard', function (): void {
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin', 'admin')
+            ->andReturn(true);
+
+        $resolver = new RootAdminResolver(
+            roleRepository: $this->roleRepository,
+            enabled: true,
+            roleIdentifier: 'root-admin',
+            guard: 'admin',
+        );
+
+        expect($resolver->isRootAdmin($this->user))->toBeTrue();
+    });
+
+    it('returns false when user has root admin role on different guard', function (): void {
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin', 'admin')
+            ->andReturn(false);
+
+        $resolver = new RootAdminResolver(
+            roleRepository: $this->roleRepository,
+            enabled: true,
+            roleIdentifier: 'root-admin',
+            guard: 'admin',
+        );
+
+        expect($resolver->isRootAdmin($this->user))->toBeFalse();
     });
 });

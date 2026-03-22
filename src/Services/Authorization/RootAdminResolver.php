@@ -14,6 +14,7 @@ final readonly class RootAdminResolver implements RootAdminResolverInterface
         private RoleRepositoryInterface $roleRepository,
         private bool $enabled = true,
         private ?string $roleIdentifier = null,
+        private ?string $guard = null,
     ) {}
 
     public function isRootAdmin(DelegatableUserInterface $user): bool
@@ -22,7 +23,6 @@ final readonly class RootAdminResolver implements RootAdminResolverInterface
             return false;
         }
 
-        // O(1) database query instead of O(n) PHP iteration
-        return $this->roleRepository->userHasRoleByName($user, $this->roleIdentifier);
+        return $this->roleRepository->userHasRoleByName($user, $this->roleIdentifier, $this->guard);
     }
 }
