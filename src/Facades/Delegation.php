@@ -11,6 +11,7 @@ use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
+use Ordain\Delegation\Services\DelegationService;
 
 /**
  * Facade for the Delegation service.
@@ -36,7 +37,7 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
  * @method static void syncRoles(DelegatableUserInterface $delegator, DelegatableUserInterface $target, array<RoleInterface> $roles)
  * @method static void syncPermissions(DelegatableUserInterface $delegator, DelegatableUserInterface $target, array<PermissionInterface> $permissions)
  *
- * @see \Ordain\Delegation\Services\DelegationService
+ * @see DelegationService
  */
 final class Delegation extends Facade
 {

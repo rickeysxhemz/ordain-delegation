@@ -6,6 +6,7 @@ namespace Ordain\Delegation\Tests;
 
 use Orchestra\Testbench\TestCase as Orchestra;
 use Ordain\Delegation\Providers\DelegationServiceProvider;
+use Ordain\Delegation\Tests\Fixtures\User;
 use Spatie\Permission\PermissionServiceProvider;
 
 abstract class TestCase extends Orchestra
@@ -35,7 +36,7 @@ abstract class TestCase extends Orchestra
             'prefix' => '',
         ]);
 
-        $app['config']->set('permission-delegation.user_model', \Ordain\Delegation\Tests\Fixtures\User::class);
+        $app['config']->set('permission-delegation.user_model', User::class);
 
         // Prevent package from loading its migrations (we use test migrations)
         $app['config']->set('permission-delegation.run_migrations', false);
@@ -48,7 +49,7 @@ abstract class TestCase extends Orchestra
         ]);
         $app['config']->set('auth.providers.users', [
             'driver' => 'eloquent',
-            'model' => \Ordain\Delegation\Tests\Fixtures\User::class,
+            'model' => User::class,
         ]);
     }
 

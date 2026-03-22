@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -90,7 +91,7 @@ final class HealthCheckCommand extends Command
         // Check user table columns
         $userModel = config('permission-delegation.user_model');
         if ($userModel && class_exists($userModel)) {
-            /** @var \Illuminate\Database\Eloquent\Model $instance */
+            /** @var Model $instance */
             $instance = new $userModel;
             $userTable = $instance->getTable();
 

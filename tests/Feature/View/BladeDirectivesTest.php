@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
+use Ordain\Delegation\Contracts\DelegationServiceInterface;
+use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Tests\Fixtures\User;
 use Ordain\Delegation\View\BladeDirectives;
 use Spatie\Permission\Models\Role;
@@ -57,7 +59,7 @@ describe('BladeDirectives', function (): void {
         $this->actingAs($user);
 
         // Use evaluation instead of compilation for runtime behavior
-        $result = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class)->canCreateUsers($user);
+        $result = app(DelegationServiceInterface::class)->canCreateUsers($user);
 
         expect($result)->toBeTrue();
     });
@@ -71,7 +73,7 @@ describe('BladeDirectives', function (): void {
 
         $this->actingAs($user);
 
-        $result = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class)->canCreateUsers($user);
+        $result = app(DelegationServiceInterface::class)->canCreateUsers($user);
 
         expect($result)->toBeFalse();
     });
@@ -85,7 +87,7 @@ describe('BladeDirectives', function (): void {
 
         $this->actingAs($user);
 
-        $roleRepo = app(\Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface::class);
+        $roleRepo = app(RoleRepositoryInterface::class);
         $role = $roleRepo->findByName('nonexistent');
 
         expect($role)->toBeNull();
@@ -103,10 +105,10 @@ describe('BladeDirectives', function (): void {
 
         $this->actingAs($user);
 
-        $roleRepo = app(\Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface::class);
+        $roleRepo = app(RoleRepositoryInterface::class);
         $foundRole = $roleRepo->findByName('editor');
 
-        $result = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class)
+        $result = app(DelegationServiceInterface::class)
             ->canAssignRole($user, $foundRole);
 
         expect($result)->toBeTrue();
@@ -127,7 +129,7 @@ describe('BladeDirectives', function (): void {
 
         $this->actingAs($manager);
 
-        $result = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class)
+        $result = app(DelegationServiceInterface::class)
             ->canManageUser($manager, $target);
 
         expect($result)->toBeTrue();
@@ -147,7 +149,7 @@ describe('BladeDirectives', function (): void {
 
         $this->actingAs($manager);
 
-        $result = app(\Ordain\Delegation\Contracts\DelegationServiceInterface::class)
+        $result = app(DelegationServiceInterface::class)
             ->canManageUser($manager, $other);
 
         expect($result)->toBeFalse();

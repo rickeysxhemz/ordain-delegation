@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Get table names dynamically
-            /** @var class-string<\Illuminate\Database\Eloquent\Model> $usersTable */
+            /** @var class-string<Model> $usersTable */
             $usersTable = config('permission-delegation.user_model', 'App\\Models\\User');
             $usersTableName = (new $usersTable)->getTable();
 

@@ -7,6 +7,7 @@ namespace Ordain\Delegation\Providers;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
@@ -194,7 +195,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
                 $userModelClass = config('permission-delegation.user_model', 'App\\Models\\User');
                 $userTable = 'users';
 
-                if (class_exists($userModelClass) && is_subclass_of($userModelClass, \Illuminate\Database\Eloquent\Model::class)) {
+                if (class_exists($userModelClass) && is_subclass_of($userModelClass, Model::class)) {
                     $userTable = (new $userModelClass)->getTable();
                 }
 
