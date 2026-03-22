@@ -33,6 +33,8 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
  * @method static void revokePermission(DelegatableUserInterface $delegator, DelegatableUserInterface $target, PermissionInterface $permission)
  * @method static bool canManageUser(DelegatableUserInterface $delegator, DelegatableUserInterface $target)
  * @method static array<string, string> validateDelegation(DelegatableUserInterface $delegator, DelegatableUserInterface $target, array<int|string> $roles = [], array<int|string> $permissions = [])
+ * @method static void syncRoles(DelegatableUserInterface $delegator, DelegatableUserInterface $target, array<RoleInterface> $roles)
+ * @method static void syncPermissions(DelegatableUserInterface $delegator, DelegatableUserInterface $target, array<PermissionInterface> $permissions)
  *
  * @see \Ordain\Delegation\Services\DelegationService
  */

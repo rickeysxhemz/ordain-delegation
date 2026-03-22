@@ -224,4 +224,30 @@ interface DelegationServiceInterface
         DelegatableUserInterface $target,
         array $permissions,
     ): void;
+
+    /**
+     * Sync a target user's roles to an exact set through delegation.
+     *
+     * @param  array<RoleInterface>  $roles
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function syncRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void;
+
+    /**
+     * Sync a target user's permissions to an exact set through delegation.
+     *
+     * @param  array<PermissionInterface>  $permissions
+     *
+     * @throws UnauthorizedDelegationException
+     */
+    public function syncPermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void;
 }

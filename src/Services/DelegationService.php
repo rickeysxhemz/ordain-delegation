@@ -335,4 +335,74 @@ final readonly class DelegationService implements DelegationServiceInterface
             }
         });
     }
+
+    /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function syncRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        $this->transactionManager->transaction(function () use ($delegator, $target, $roles): void {
+            $currentRoles = $this->roleRepository->getUserRoles($target);
+
+            /** @var array<int|string, true> $desiredIdMap */
+            $desiredIdMap = [];
+            foreach ($roles as $role) {
+                $desiredIdMap[$role->getRoleIdentifier()] = true;
+            }
+
+            /** @var array<int|string, true> $currentIdMap */
+            $currentIdMap = [];
+            foreach ($currentRoles as $currentRole) {
+                $currentIdMap[$currentRole->getRoleIdentifier()] = true;
+
+                if (! isset($desiredIdMap[$currentRole->getRoleIdentifier()])) {
+                    $this->revokeRole($delegator, $target, $currentRole);
+                }
+            }
+
+            foreach ($roles as $role) {
+                if (! isset($currentIdMap[$role->getRoleIdentifier()])) {
+                    $this->delegateRole($delegator, $target, $role);
+                }
+            }
+        });
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function syncPermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        $this->transactionManager->transaction(function () use ($delegator, $target, $permissions): void {
+            $currentPermissions = $this->permissionRepository->getUserPermissions($target);
+
+            /** @var array<int|string, true> $desiredIdMap */
+            $desiredIdMap = [];
+            foreach ($permissions as $permission) {
+                $desiredIdMap[$permission->getPermissionIdentifier()] = true;
+            }
+
+            /** @var array<int|string, true> $currentIdMap */
+            $currentIdMap = [];
+            foreach ($currentPermissions as $currentPermission) {
+                $currentIdMap[$currentPermission->getPermissionIdentifier()] = true;
+
+                if (! isset($desiredIdMap[$currentPermission->getPermissionIdentifier()])) {
+                    $this->revokePermission($delegator, $target, $currentPermission);
+                }
+            }
+
+            foreach ($permissions as $permission) {
+                if (! isset($currentIdMap[$permission->getPermissionIdentifier()])) {
+                    $this->delegatePermission($delegator, $target, $permission);
+                }
+            }
+        });
+    }
 }

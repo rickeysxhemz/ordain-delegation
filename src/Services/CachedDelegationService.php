@@ -282,6 +282,32 @@ final readonly class CachedDelegationService implements DelegationServiceInterfa
     }
 
     /**
+     * @param  array<RoleInterface>  $roles
+     */
+    public function syncRoles(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $roles,
+    ): void {
+        $this->inner->syncRoles($delegator, $target, $roles);
+        $this->forgetUserCache($delegator);
+        $this->forgetUserCache($target);
+    }
+
+    /**
+     * @param  array<PermissionInterface>  $permissions
+     */
+    public function syncPermissions(
+        DelegatableUserInterface $delegator,
+        DelegatableUserInterface $target,
+        array $permissions,
+    ): void {
+        $this->inner->syncPermissions($delegator, $target, $permissions);
+        $this->forgetUserCache($delegator);
+        $this->forgetUserCache($target);
+    }
+
+    /**
      * Clear all cached data for a user.
      */
     public function forgetUserCache(DelegatableUserInterface $user): void
