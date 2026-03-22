@@ -40,7 +40,7 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         RoleInterface $role,
         DelegatableUserInterface $target,
     ): bool {
-        return $this->pipeline->canAssignRole($delegator, $role, $target);
+        return $this->pipeline->canRevokeRole($delegator, $role, $target);
     }
 
     public function canRevokePermission(
@@ -48,7 +48,7 @@ final readonly class DelegationAuthorizer implements DelegationAuthorizerInterfa
         PermissionInterface $permission,
         DelegatableUserInterface $target,
     ): bool {
-        return $this->pipeline->canAssignPermission($delegator, $permission, $target);
+        return $this->pipeline->canRevokePermission($delegator, $permission, $target);
     }
 
     public function canManageUser(

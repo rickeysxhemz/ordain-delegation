@@ -21,6 +21,24 @@ interface AuthorizationPipelineInterface
         ?DelegatableUserInterface $target = null,
     ): bool;
 
+    /**
+     * Check if a delegator can revoke a specific role from a target user.
+     */
+    public function canRevokeRole(
+        DelegatableUserInterface $delegator,
+        RoleInterface $role,
+        DelegatableUserInterface $target,
+    ): bool;
+
+    /**
+     * Check if a delegator can revoke a specific permission from a target user.
+     */
+    public function canRevokePermission(
+        DelegatableUserInterface $delegator,
+        PermissionInterface $permission,
+        DelegatableUserInterface $target,
+    ): bool;
+
     public function canManageUser(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,

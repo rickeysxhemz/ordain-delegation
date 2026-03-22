@@ -47,6 +47,26 @@ final readonly class AuthorizationPipeline implements AuthorizationPipelineInter
         return $this->process($context)->isGranted();
     }
 
+    public function canRevokeRole(
+        DelegatableUserInterface $delegator,
+        RoleInterface $role,
+        DelegatableUserInterface $target,
+    ): bool {
+        $context = AuthorizationContext::forRoleRevocation($delegator, $role, $target);
+
+        return $this->process($context)->isGranted();
+    }
+
+    public function canRevokePermission(
+        DelegatableUserInterface $delegator,
+        PermissionInterface $permission,
+        DelegatableUserInterface $target,
+    ): bool {
+        $context = AuthorizationContext::forPermissionRevocation($delegator, $permission, $target);
+
+        return $this->process($context)->isGranted();
+    }
+
     public function canManageUser(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,

@@ -51,6 +51,32 @@ final class AuthorizationContext
         );
     }
 
+    public static function forRoleRevocation(
+        DelegatableUserInterface $delegator,
+        RoleInterface $role,
+        DelegatableUserInterface $target,
+    ): self {
+        return new self(
+            delegator: $delegator,
+            role: $role,
+            target: $target,
+            action: 'revoke_role',
+        );
+    }
+
+    public static function forPermissionRevocation(
+        DelegatableUserInterface $delegator,
+        PermissionInterface $permission,
+        DelegatableUserInterface $target,
+    ): self {
+        return new self(
+            delegator: $delegator,
+            permission: $permission,
+            target: $target,
+            action: 'revoke_permission',
+        );
+    }
+
     public static function forUserManagement(
         DelegatableUserInterface $delegator,
         DelegatableUserInterface $target,

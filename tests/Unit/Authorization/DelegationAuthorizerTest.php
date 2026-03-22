@@ -62,8 +62,8 @@ describe('canAssignPermission', function (): void {
 });
 
 describe('canRevokeRole', function (): void {
-    it('delegates to pipeline canAssignRole for revocation', function (): void {
-        $this->pipeline->shouldReceive('canAssignRole')
+    it('delegates to pipeline canRevokeRole', function (): void {
+        $this->pipeline->shouldReceive('canRevokeRole')
             ->with($this->delegator, $this->role, $this->target)
             ->once()
             ->andReturn(true);
@@ -73,8 +73,8 @@ describe('canRevokeRole', function (): void {
 });
 
 describe('canRevokePermission', function (): void {
-    it('delegates to pipeline canAssignPermission for revocation', function (): void {
-        $this->pipeline->shouldReceive('canAssignPermission')
+    it('delegates to pipeline canRevokePermission', function (): void {
+        $this->pipeline->shouldReceive('canRevokePermission')
             ->with($this->delegator, $this->permission, $this->target)
             ->once()
             ->andReturn(true);

@@ -50,6 +50,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Auth Guard
+    |--------------------------------------------------------------------------
+    |
+    | The authentication guard used to resolve the current user in Blade
+    | directives and middleware. Set to null to use the default guard.
+    |
+    */
+    'guard' => env('DELEGATION_GUARD', null),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Tables
     |--------------------------------------------------------------------------
     |
