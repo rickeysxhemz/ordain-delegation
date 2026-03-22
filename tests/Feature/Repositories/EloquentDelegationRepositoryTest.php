@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
+use Ordain\Delegation\Adapters\SpatiePermissionAdapterFactory;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
+use Ordain\Delegation\Adapters\SpatieRoleAdapterFactory;
 use Ordain\Delegation\Repositories\EloquentDelegationRepository;
 use Ordain\Delegation\Tests\Fixtures\User;
 use Spatie\Permission\Models\Permission;
@@ -13,7 +15,10 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    $this->repository = new EloquentDelegationRepository;
+    $this->repository = new EloquentDelegationRepository(
+        new SpatieRoleAdapterFactory,
+        new SpatiePermissionAdapterFactory,
+    );
     $this->user = User::create([
         'name' => 'Test User',
         'email' => 'test@example.com',

@@ -41,9 +41,12 @@ parameters:
         - identifier: missingType.iterableValue
           path: src/Contracts/*
 
-        # Collection covariance in repositories
+        # Collection covariance in repositories and adapters
         - message: '#should return Illuminate\\Support\\Collection<int, Ordain\\Delegation\\Contracts\\.+Interface> but returns#'
-          path: src/Repositories/*
+          paths:
+              - src/Repositories/*
+              - src/Adapters/*
+          reportUnmatched: false
 
         # Dynamic column names
         - identifier: argument.type

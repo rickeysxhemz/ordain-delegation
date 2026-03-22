@@ -6,6 +6,7 @@ namespace Ordain\Delegation\Services;
 
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Collection;
+use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
@@ -18,7 +19,7 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
  * Wraps the delegation service to cache frequently accessed data
  * and reduce database queries.
  */
-final readonly class CachedDelegationService implements DelegationServiceInterface
+final readonly class CachedDelegationService implements CacheInvalidatorInterface, DelegationServiceInterface
 {
     /**
      * Static cache key templates to avoid repeated string operations.

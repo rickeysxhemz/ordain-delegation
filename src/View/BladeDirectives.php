@@ -14,6 +14,11 @@ use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
  */
 final readonly class BladeDirectives
 {
+    public function __construct(
+        private DelegationServiceInterface $delegationService,
+        private RoleRepositoryInterface $roleRepository,
+    ) {}
+
     /**
      * Resolve the authenticated user using the configured guard.
      */
@@ -40,47 +45,46 @@ final readonly class BladeDirectives
 
     private function registerCanDelegate(): void
     {
-        Blade::if('canDelegate', static function (): bool {
+        Blade::if('canDelegate', function (): bool {
             $user = self::resolveUser();
 
             if ($user === null) {
                 return false;
             }
 
-            return app(DelegationServiceInterface::class)->canCreateUsers($user);
+            return $this->delegationService->canCreateUsers($user);
         });
     }
 
     private function registerCanAssignRole(): void
     {
-        Blade::if('canAssignRole', static function (string $roleName): bool {
+        Blade::if('canAssignRole', function (string $roleName): bool {
             $user = self::resolveUser();
 
             if ($user === null) {
                 return false;
             }
 
-            $roleRepository = app(RoleRepositoryInterface::class);
-            $role = $roleRepository->findByName($roleName);
+            $role = $this->roleRepository->findByName($roleName);
 
             if ($role === null) {
                 return false;
             }
 
-            return app(DelegationServiceInterface::class)->canAssignRole($user, $role);
+            return $this->delegationService->canAssignRole($user, $role);
         });
     }
 
     private function registerCanManageUser(): void
     {
-        Blade::if('canManageUser', static function (DelegatableUserInterface $targetUser): bool {
+        Blade::if('canManageUser', function (DelegatableUserInterface $targetUser): bool {
             $user = self::resolveUser();
 
             if ($user === null) {
                 return false;
             }
 
-            return app(DelegationServiceInterface::class)->canManageUser($user, $targetUser);
+            return $this->delegationService->canManageUser($user, $targetUser);
         });
     }
 }

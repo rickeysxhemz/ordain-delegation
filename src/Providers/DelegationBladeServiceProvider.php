@@ -14,6 +14,6 @@ final class DelegationBladeServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        (new BladeDirectives)->register();
+        $this->app->make(BladeDirectives::class)->register();
     }
 }

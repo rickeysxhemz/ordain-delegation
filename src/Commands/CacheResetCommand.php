@@ -8,9 +8,9 @@ use Illuminate\Cache\Repository;
 use Illuminate\Cache\TaggableStore;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
-use Ordain\Delegation\Services\CachedDelegationService;
 
 final class CacheResetCommand extends Command
 {
@@ -105,7 +105,7 @@ final class CacheResetCommand extends Command
         $this->line("  Keys cleared: {$keysCleared}");
 
         // Check if using CachedDelegationService
-        if ($delegationService instanceof CachedDelegationService) {
+        if ($delegationService instanceof CacheInvalidatorInterface) {
             $delegationService->forgetUserCache($user);
             $this->line('  <fg=green>CachedDelegationService cache invalidated.</>');
         }

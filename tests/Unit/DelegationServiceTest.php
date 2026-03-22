@@ -10,6 +10,7 @@ use Mockery\MockInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
 use Ordain\Delegation\Contracts\DelegationValidatorInterface;
 use Ordain\Delegation\Contracts\EventDispatcherInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
@@ -23,6 +24,7 @@ use Ordain\Delegation\Contracts\TransactionManagerInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 use Ordain\Delegation\Services\DelegationService;
+use stdClass;
 
 beforeEach(function (): void {
     $this->authorizer = Mockery::mock(DelegationAuthorizerInterface::class);
@@ -34,6 +36,12 @@ beforeEach(function (): void {
     $this->permissionRepository = Mockery::mock(PermissionRepositoryInterface::class);
     $this->transactionManager = Mockery::mock(TransactionManagerInterface::class);
     $this->eventDispatcher = Mockery::mock(EventDispatcherInterface::class);
+    $this->eventFactory = Mockery::mock(DelegationEventFactoryInterface::class);
+    $this->eventFactory->shouldReceive('createRoleDelegated')->andReturn(new stdClass)->byDefault();
+    $this->eventFactory->shouldReceive('createRoleRevoked')->andReturn(new stdClass)->byDefault();
+    $this->eventFactory->shouldReceive('createPermissionGranted')->andReturn(new stdClass)->byDefault();
+    $this->eventFactory->shouldReceive('createPermissionRevoked')->andReturn(new stdClass)->byDefault();
+    $this->eventFactory->shouldReceive('createDelegationScopeUpdated')->andReturn(new stdClass)->byDefault();
     $this->audit = Mockery::mock(DelegationAuditInterface::class);
 
     $this->service = new DelegationService(
@@ -46,6 +54,7 @@ beforeEach(function (): void {
         permissionRepository: $this->permissionRepository,
         transactionManager: $this->transactionManager,
         eventDispatcher: $this->eventDispatcher,
+        eventFactory: $this->eventFactory,
         audit: $this->audit,
     );
 });

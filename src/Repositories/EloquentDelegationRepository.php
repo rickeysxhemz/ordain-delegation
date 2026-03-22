@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Repositories;
 
 use Illuminate\Support\Collection;
-use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
-use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\PermissionAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
+use Ordain\Delegation\Contracts\RoleAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 
 /**
@@ -20,12 +20,17 @@ use Ordain\Delegation\Contracts\RoleInterface;
  */
 final readonly class EloquentDelegationRepository implements DelegationRepositoryInterface
 {
+    public function __construct(
+        private RoleAdapterFactoryInterface $roleAdapterFactory,
+        private PermissionAdapterFactoryInterface $permissionAdapterFactory,
+    ) {}
+
     /**
      * @return Collection<int, RoleInterface>
      */
     public function getAssignableRoles(DelegatableUserInterface $user): Collection
     {
-        return SpatieRoleAdapter::collection($user->assignableRoles()->get());
+        return $this->roleAdapterFactory->collection($user->assignableRoles()->get());
     }
 
     /**
@@ -33,7 +38,7 @@ final readonly class EloquentDelegationRepository implements DelegationRepositor
      */
     public function getAssignablePermissions(DelegatableUserInterface $user): Collection
     {
-        return SpatiePermissionAdapter::collection($user->assignablePermissions()->get());
+        return $this->permissionAdapterFactory->collection($user->assignablePermissions()->get());
     }
 
     public function setAssignableRoles(DelegatableUserInterface $user, array $roleIds): void

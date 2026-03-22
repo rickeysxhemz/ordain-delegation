@@ -7,10 +7,15 @@ namespace Ordain\Delegation\Providers;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Console\AboutCommand;
+use Illuminate\Log\LogManager;
+use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Ordain\Delegation\Adapters\SpatiePermissionAdapterFactory;
+use Ordain\Delegation\Adapters\SpatieRoleAdapterFactory;
 use Ordain\Delegation\Commands\AssignRoleCommand;
 use Ordain\Delegation\Commands\CacheResetCommand;
 use Ordain\Delegation\Commands\HealthCheckCommand;
@@ -19,19 +24,25 @@ use Ordain\Delegation\Commands\ShowDelegationCommand;
 use Ordain\Delegation\Contracts\AuthorizationPipelineInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\DelegationValidatorInterface;
 use Ordain\Delegation\Contracts\EventDispatcherInterface;
+use Ordain\Delegation\Contracts\PermissionAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\QuotaManagerInterface;
+use Ordain\Delegation\Contracts\RateLimiterInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
+use Ordain\Delegation\Contracts\RoleAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\RootAdminResolverInterface;
 use Ordain\Delegation\Contracts\TransactionManagerInterface;
+use Ordain\Delegation\Events\DelegationEventFactory;
 use Ordain\Delegation\Http\Middleware\CanAssignRoleMiddleware;
 use Ordain\Delegation\Http\Middleware\CanDelegateMiddleware;
 use Ordain\Delegation\Http\Middleware\CanManageUserMiddleware;
+use Ordain\Delegation\Http\Middleware\LaravelRateLimiterAdapter;
 use Ordain\Delegation\Http\Middleware\RateLimitDelegationMiddleware;
 use Ordain\Delegation\Repositories\EloquentDelegationRepository;
 use Ordain\Delegation\Repositories\EloquentUserRepository;
@@ -44,6 +55,10 @@ use Ordain\Delegation\Services\Audit\DatabaseDelegationAudit;
 use Ordain\Delegation\Services\Audit\LogDelegationAudit;
 use Ordain\Delegation\Services\Authorization\AuthorizationPipeline;
 use Ordain\Delegation\Services\Authorization\DelegationAuthorizer;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckHierarchyPipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckRoleInScopePipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckRootAdminPipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckUserManagementPipe;
 use Ordain\Delegation\Services\Authorization\RootAdminResolver;
 use Ordain\Delegation\Services\CachedDelegationService;
 use Ordain\Delegation\Services\DelegationService;
@@ -103,6 +118,10 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
             RoleRepositoryInterface::class,
             PermissionRepositoryInterface::class,
             UserRepositoryInterface::class,
+            RoleAdapterFactoryInterface::class,
+            PermissionAdapterFactoryInterface::class,
+            DelegationEventFactoryInterface::class,
+            RateLimiterInterface::class,
             'delegation',
         ];
     }
@@ -124,7 +143,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
 
     private function registerBladeDirectives(): void
     {
-        (new BladeDirectives)->register();
+        $this->app->make(BladeDirectives::class)->register();
     }
 
     private function registerMiddleware(): void
@@ -158,22 +177,30 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
 
     private function registerRepositories(): void
     {
+        $this->app->scoped(RoleAdapterFactoryInterface::class, SpatieRoleAdapterFactory::class);
+        $this->app->scoped(PermissionAdapterFactoryInterface::class, SpatiePermissionAdapterFactory::class);
+
         $this->app->scoped(
             DelegationRepositoryInterface::class,
-            EloquentDelegationRepository::class,
+            static fn (Application $app): EloquentDelegationRepository => new EloquentDelegationRepository(
+                $app->make(RoleAdapterFactoryInterface::class),
+                $app->make(PermissionAdapterFactoryInterface::class),
+            ),
         );
 
         $this->app->scoped(
             RoleRepositoryInterface::class,
-            static fn (): SpatieRoleRepository => new SpatieRoleRepository(
+            static fn (Application $app): SpatieRoleRepository => new SpatieRoleRepository(
                 (string) config('permission-delegation.role_model'),
+                $app->make(RoleAdapterFactoryInterface::class),
             ),
         );
 
         $this->app->scoped(
             PermissionRepositoryInterface::class,
-            static fn (): SpatiePermissionRepository => new SpatiePermissionRepository(
+            static fn (Application $app): SpatiePermissionRepository => new SpatiePermissionRepository(
                 (string) config('permission-delegation.permission_model'),
+                $app->make(PermissionAdapterFactoryInterface::class),
             ),
         );
 
@@ -190,8 +217,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
     {
         $this->app->scoped(
             TransactionManagerInterface::class,
-            static function (): TransactionManager {
-                // Resolve table name once from model class to avoid repeated instantiation
+            static function (Application $app): TransactionManager {
                 $userModelClass = config('permission-delegation.user_model', 'App\\Models\\User');
                 $userTable = 'users';
 
@@ -200,6 +226,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
                 }
 
                 return new TransactionManager(
+                    connection: $app->make(ConnectionInterface::class),
                     userTable: $userTable,
                 );
             },
@@ -221,10 +248,23 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
             ),
         );
 
-        $this->app->scoped(AuthorizationPipelineInterface::class, AuthorizationPipeline::class);
+        $this->app->scoped(
+            AuthorizationPipelineInterface::class,
+            static fn (Application $app): AuthorizationPipeline => new AuthorizationPipeline(
+                pipeline: $app->make(Pipeline::class),
+                pipes: [
+                    $app->make(CheckRootAdminPipe::class),
+                    new CheckUserManagementPipe,
+                    new CheckHierarchyPipe,
+                    $app->make(CheckRoleInScopePipe::class),
+                ],
+            ),
+        );
         $this->app->scoped(DelegationAuthorizerInterface::class, DelegationAuthorizer::class);
         $this->app->scoped(QuotaManagerInterface::class, QuotaManager::class);
         $this->app->scoped(DelegationValidatorInterface::class, DelegationValidator::class);
+        $this->app->scoped(DelegationEventFactoryInterface::class, DelegationEventFactory::class);
+        $this->app->scoped(RateLimiterInterface::class, LaravelRateLimiterAdapter::class);
 
         $this->registerAuditDrivers();
     }
@@ -241,7 +281,8 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
 
         $this->app->bind(
             DatabaseDelegationAudit::class,
-            static fn (): DatabaseDelegationAudit => new DatabaseDelegationAudit(
+            static fn (Application $app): DatabaseDelegationAudit => new DatabaseDelegationAudit(
+                connection: $app->make(ConnectionInterface::class),
                 tableName: (string) config('permission-delegation.tables.delegation_audit_logs', 'delegation_audit_logs'),
                 context: AuditContext::fromRequest(request()),
             ),
@@ -249,8 +290,10 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
 
         $this->app->bind(
             LogDelegationAudit::class,
-            static fn (): LogDelegationAudit => new LogDelegationAudit(
-                channel: (string) config('permission-delegation.audit.log_channel', 'stack'),
+            static fn (Application $app): LogDelegationAudit => new LogDelegationAudit(
+                logger: $app->make(LogManager::class)->channel(
+                    (string) config('permission-delegation.audit.log_channel', 'stack'),
+                ),
             ),
         );
     }

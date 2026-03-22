@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Ordain\Delegation\Http\Middleware;
 
 use Closure;
-use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
+use Ordain\Delegation\Contracts\RateLimiterInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 final readonly class RateLimitDelegationMiddleware
 {
     public function __construct(
-        private RateLimiter $limiter,
+        private RateLimiterInterface $limiter,
     ) {}
 
     /**

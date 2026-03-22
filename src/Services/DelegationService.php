@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationAuthorizerInterface;
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\DelegationValidatorInterface;
 use Ordain\Delegation\Contracts\EventDispatcherInterface;
@@ -20,11 +21,6 @@ use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Contracts\RootAdminResolverInterface;
 use Ordain\Delegation\Contracts\TransactionManagerInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
-use Ordain\Delegation\Events\DelegationScopeUpdated;
-use Ordain\Delegation\Events\PermissionGranted;
-use Ordain\Delegation\Events\PermissionRevoked;
-use Ordain\Delegation\Events\RoleDelegated;
-use Ordain\Delegation\Events\RoleRevoked;
 use Ordain\Delegation\Exceptions\UnauthorizedDelegationException;
 
 /**
@@ -42,6 +38,7 @@ final readonly class DelegationService implements DelegationServiceInterface
         private PermissionRepositoryInterface $permissionRepository,
         private TransactionManagerInterface $transactionManager,
         private EventDispatcherInterface $eventDispatcher,
+        private DelegationEventFactoryInterface $eventFactory,
         private ?DelegationAuditInterface $audit = null,
     ) {}
 
@@ -146,7 +143,7 @@ final readonly class DelegationService implements DelegationServiceInterface
                 'new' => $scope->toArray(),
             ]);
 
-            $this->eventDispatcher->dispatch(new DelegationScopeUpdated($user, $oldScope, $scope, $admin));
+            $this->eventDispatcher->dispatch($this->eventFactory->createDelegationScopeUpdated($user, $oldScope, $scope, $admin));
         }
     }
 
@@ -179,7 +176,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->assignToUser($target, $role);
         $this->audit?->logRoleAssigned($delegator, $target, $role);
-        $this->eventDispatcher->dispatch(new RoleDelegated($delegator, $target, $role));
+        $this->eventDispatcher->dispatch($this->eventFactory->createRoleDelegated($delegator, $target, $role));
     }
 
     public function delegatePermission(
@@ -198,7 +195,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->assignToUser($target, $permission);
         $this->audit?->logPermissionGranted($delegator, $target, $permission);
-        $this->eventDispatcher->dispatch(new PermissionGranted($delegator, $target, $permission));
+        $this->eventDispatcher->dispatch($this->eventFactory->createPermissionGranted($delegator, $target, $permission));
     }
 
     public function revokeRole(
@@ -217,7 +214,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->roleRepository->removeFromUser($target, $role);
         $this->audit?->logRoleRevoked($delegator, $target, $role);
-        $this->eventDispatcher->dispatch(new RoleRevoked($delegator, $target, $role));
+        $this->eventDispatcher->dispatch($this->eventFactory->createRoleRevoked($delegator, $target, $role));
     }
 
     public function revokePermission(
@@ -236,7 +233,7 @@ final readonly class DelegationService implements DelegationServiceInterface
 
         $this->permissionRepository->removeFromUser($target, $permission);
         $this->audit?->logPermissionRevoked($delegator, $target, $permission);
-        $this->eventDispatcher->dispatch(new PermissionRevoked($delegator, $target, $permission));
+        $this->eventDispatcher->dispatch($this->eventFactory->createPermissionRevoked($delegator, $target, $permission));
     }
 
     public function canManageUser(

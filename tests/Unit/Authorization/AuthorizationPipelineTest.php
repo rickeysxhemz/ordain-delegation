@@ -10,6 +10,10 @@ use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Contracts\RootAdminResolverInterface;
 use Ordain\Delegation\Services\Authorization\AuthorizationPipeline;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckHierarchyPipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckRoleInScopePipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckRootAdminPipe;
+use Ordain\Delegation\Services\Authorization\Pipes\CheckUserManagementPipe;
 
 beforeEach(function (): void {
     $this->pipeline = app(Pipeline::class);
@@ -25,8 +29,12 @@ beforeEach(function (): void {
 
     $this->authPipeline = new AuthorizationPipeline(
         pipeline: $this->pipeline,
-        rootAdminResolver: $this->rootAdminResolver,
-        delegationRepository: $this->delegationRepository,
+        pipes: [
+            new CheckRootAdminPipe($this->rootAdminResolver),
+            new CheckUserManagementPipe,
+            new CheckHierarchyPipe,
+            new CheckRoleInScopePipe($this->delegationRepository),
+        ],
     );
 });
 
@@ -141,6 +149,98 @@ describe('AuthorizationPipeline', function (): void {
             $result = $this->authPipeline->canAssignPermission($this->delegator, $this->permission, $this->target);
 
             expect($result)->toBeTrue();
+        });
+    });
+
+    describe('canRevokeRole', function (): void {
+        it('returns true when root admin', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(true);
+
+            $result = $this->authPipeline->canRevokeRole($this->delegator, $this->role, $this->target);
+
+            expect($result)->toBeTrue();
+        });
+
+        it('returns true when role is in scope and delegator is creator', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(false);
+
+            $this->delegator->shouldReceive('canManageUsers')->andReturn(true);
+            $this->target->shouldReceive('getCreator')->andReturn($this->delegator);
+
+            $this->delegationRepository->shouldReceive('hasAssignableRole')
+                ->with($this->delegator, $this->role)
+                ->andReturn(true);
+
+            $result = $this->authPipeline->canRevokeRole($this->delegator, $this->role, $this->target);
+
+            expect($result)->toBeTrue();
+        });
+
+        it('returns false when role is not in scope', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(false);
+
+            $this->delegator->shouldReceive('canManageUsers')->andReturn(true);
+            $this->target->shouldReceive('getCreator')->andReturn($this->delegator);
+
+            $this->delegationRepository->shouldReceive('hasAssignableRole')
+                ->with($this->delegator, $this->role)
+                ->andReturn(false);
+
+            $result = $this->authPipeline->canRevokeRole($this->delegator, $this->role, $this->target);
+
+            expect($result)->toBeFalse();
+        });
+    });
+
+    describe('canRevokePermission', function (): void {
+        it('returns true when root admin', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(true);
+
+            $result = $this->authPipeline->canRevokePermission($this->delegator, $this->permission, $this->target);
+
+            expect($result)->toBeTrue();
+        });
+
+        it('returns true when permission is in scope and delegator is creator', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(false);
+
+            $this->delegator->shouldReceive('canManageUsers')->andReturn(true);
+            $this->target->shouldReceive('getCreator')->andReturn($this->delegator);
+
+            $this->delegationRepository->shouldReceive('hasAssignablePermission')
+                ->with($this->delegator, $this->permission)
+                ->andReturn(true);
+
+            $result = $this->authPipeline->canRevokePermission($this->delegator, $this->permission, $this->target);
+
+            expect($result)->toBeTrue();
+        });
+
+        it('returns false when permission is not in scope', function (): void {
+            $this->rootAdminResolver->shouldReceive('isRootAdmin')
+                ->with($this->delegator)
+                ->andReturn(false);
+
+            $this->delegator->shouldReceive('canManageUsers')->andReturn(true);
+            $this->target->shouldReceive('getCreator')->andReturn($this->delegator);
+
+            $this->delegationRepository->shouldReceive('hasAssignablePermission')
+                ->with($this->delegator, $this->permission)
+                ->andReturn(false);
+
+            $result = $this->authPipeline->canRevokePermission($this->delegator, $this->permission, $this->target);
+
+            expect($result)->toBeFalse();
         });
     });
 

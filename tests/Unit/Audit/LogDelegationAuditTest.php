@@ -8,11 +8,13 @@ use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Services\Audit\LogDelegationAudit;
 use Ordain\Delegation\Tests\TestCase;
+use Psr\Log\NullLogger;
 
 uses(TestCase::class);
 
 beforeEach(function (): void {
-    $this->audit = new LogDelegationAudit(channel: 'stack');
+    $this->logger = new NullLogger;
+    $this->audit = new LogDelegationAudit(logger: $this->logger);
 
     $this->delegator = Mockery::mock(DelegatableUserInterface::class);
     $this->delegator->shouldReceive('getDelegatableIdentifier')->andReturn(1);

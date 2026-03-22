@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Services\Audit;
 
-use Illuminate\Support\Facades\DB;
+use DateTimeImmutable;
+use Illuminate\Database\ConnectionInterface;
 use InvalidArgumentException;
 use JsonException;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
@@ -20,12 +21,14 @@ final readonly class DatabaseDelegationAudit extends AbstractDelegationAudit
     private const VALID_TABLE_PATTERN = '/^[a-zA-Z_][a-zA-Z0-9_]*$/';
 
     /**
+     * @param  ConnectionInterface  $connection  The database connection
      * @param  string  $tableName  The audit log table name
      * @param  AuditContext  $context  Request context for IP/User-Agent
      *
      * @throws InvalidArgumentException If table name contains invalid characters
      */
     public function __construct(
+        private ConnectionInterface $connection,
         private string $tableName = 'delegation_audit_logs',
         private AuditContext $context = new AuditContext,
     ) {
@@ -39,9 +42,10 @@ final readonly class DatabaseDelegationAudit extends AbstractDelegationAudit
     /**
      * Create instance with context from current request.
      */
-    public static function withCurrentRequest(string $tableName = 'delegation_audit_logs'): self
+    public static function withCurrentRequest(ConnectionInterface $connection, string $tableName = 'delegation_audit_logs'): self
     {
         return new self(
+            connection: $connection,
             tableName: $tableName,
             context: AuditContext::fromRequest(request()),
         );
@@ -53,14 +57,14 @@ final readonly class DatabaseDelegationAudit extends AbstractDelegationAudit
         ?DelegatableUserInterface $targetUser,
         array $metadata,
     ): void {
-        DB::table($this->tableName)->insert([
+        $this->connection->table($this->tableName)->insert([
             'action' => $action->value,
             'performed_by_id' => $performedBy->getDelegatableIdentifier(),
             'target_user_id' => $targetUser?->getDelegatableIdentifier(),
             'metadata' => $this->safeJsonEncode($metadata),
             'ip_address' => $this->context->ipAddress,
             'user_agent' => $this->context->userAgent,
-            'created_at' => now(),
+            'created_at' => new DateTimeImmutable,
         ]);
     }
 

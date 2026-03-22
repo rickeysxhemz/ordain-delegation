@@ -7,7 +7,9 @@ namespace Ordain\Delegation\Repositories;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Adapters\SpatiePermissionAdapter;
+use Ordain\Delegation\Adapters\SpatiePermissionAdapterFactory;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
+use Ordain\Delegation\Contracts\PermissionAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
 use Spatie\Permission\Contracts\Permission as SpatiePermissionContract;
@@ -22,6 +24,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
 {
     public function __construct(
         private string $permissionModelClass = Permission::class,
+        private PermissionAdapterFactoryInterface $adapterFactory = new SpatiePermissionAdapterFactory,
     ) {}
 
     public function findById(int|string $id): ?PermissionInterface
@@ -33,7 +36,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
             return null;
         }
 
-        return SpatiePermissionAdapter::fromModel($permission);
+        return $this->adapterFactory->fromModel($permission);
     }
 
     /**
@@ -46,7 +49,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
             return collect();
         }
 
-        return SpatiePermissionAdapter::collection(
+        return $this->adapterFactory->collection(
             $this->permissionModelClass::whereIn('id', $ids)->get(),
         );
     }
@@ -66,7 +69,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
             return null;
         }
 
-        return SpatiePermissionAdapter::fromModel($permission);
+        return $this->adapterFactory->fromModel($permission);
     }
 
     /**
@@ -84,7 +87,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
             $query->limit($limit);
         }
 
-        return SpatiePermissionAdapter::collection($query->get());
+        return $this->adapterFactory->collection($query->get());
     }
 
     /**
@@ -99,7 +102,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
         }
 
         return $query->lazy()->map(
-            fn (SpatiePermissionContract $permission): PermissionInterface => SpatiePermissionAdapter::fromModel($permission),
+            fn (SpatiePermissionContract $permission): PermissionInterface => $this->adapterFactory->fromModel($permission),
         );
     }
 
@@ -111,7 +114,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
         /** @var Collection<int, SpatiePermissionContract> $permissions */
         $permissions = $user->permissions()->get();
 
-        return SpatiePermissionAdapter::collection($permissions);
+        return $this->adapterFactory->collection($permissions);
     }
 
     /**
@@ -122,7 +125,7 @@ final readonly class SpatiePermissionRepository implements PermissionRepositoryI
         /** @phpstan-ignore-next-line */
         $permissions = $user->getAllPermissions();
 
-        return SpatiePermissionAdapter::collection($permissions);
+        return $this->adapterFactory->collection($permissions);
     }
 
     public function assignToUser(DelegatableUserInterface $user, PermissionInterface $permission): void

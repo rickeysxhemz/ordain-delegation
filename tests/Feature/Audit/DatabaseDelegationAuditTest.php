@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -19,7 +20,11 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     $this->context = new AuditContext('127.0.0.1', 'Test Agent');
-    $this->audit = new DatabaseDelegationAudit('delegation_audit_logs', $this->context);
+    $this->audit = new DatabaseDelegationAudit(
+        connection: app(ConnectionInterface::class),
+        tableName: 'delegation_audit_logs',
+        context: $this->context,
+    );
 
     $this->delegator = User::create([
         'name' => 'Delegator',
@@ -122,7 +127,9 @@ describe('DatabaseDelegationAudit', function (): void {
     });
 
     it('creates instance with current request context', function (): void {
-        $audit = DatabaseDelegationAudit::withCurrentRequest();
+        $audit = DatabaseDelegationAudit::withCurrentRequest(
+            app(ConnectionInterface::class),
+        );
 
         expect($audit)->toBeInstanceOf(DatabaseDelegationAudit::class);
     });
@@ -142,21 +149,22 @@ describe('DatabaseDelegationAudit', function (): void {
     });
 
     it('throws exception for invalid table name', function (): void {
-        new DatabaseDelegationAudit('table-with-dashes', $this->context);
+        new DatabaseDelegationAudit(app(ConnectionInterface::class), 'table-with-dashes', $this->context);
     })->throws(InvalidArgumentException::class, 'Invalid table name');
 
     it('throws exception for table name starting with number', function (): void {
-        new DatabaseDelegationAudit('123table', $this->context);
+        new DatabaseDelegationAudit(app(ConnectionInterface::class), '123table', $this->context);
     })->throws(InvalidArgumentException::class, 'Invalid table name');
 
     it('throws exception for table name with special characters', function (): void {
-        new DatabaseDelegationAudit('table.name', $this->context);
+        new DatabaseDelegationAudit(app(ConnectionInterface::class), 'table.name', $this->context);
     })->throws(InvalidArgumentException::class, 'Invalid table name');
 
     it('accepts valid table names', function (): void {
-        $audit1 = new DatabaseDelegationAudit('valid_table_name', $this->context);
-        $audit2 = new DatabaseDelegationAudit('_underscore_start', $this->context);
-        $audit3 = new DatabaseDelegationAudit('TableName123', $this->context);
+        $connection = app(ConnectionInterface::class);
+        $audit1 = new DatabaseDelegationAudit($connection, 'valid_table_name', $this->context);
+        $audit2 = new DatabaseDelegationAudit($connection, '_underscore_start', $this->context);
+        $audit3 = new DatabaseDelegationAudit($connection, 'TableName123', $this->context);
 
         expect($audit1)->toBeInstanceOf(DatabaseDelegationAudit::class);
         expect($audit2)->toBeInstanceOf(DatabaseDelegationAudit::class);

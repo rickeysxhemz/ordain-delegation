@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Ordain\Delegation\Services\Infrastructure\TransactionManager;
 use Ordain\Delegation\Tests\Fixtures\User;
@@ -10,7 +11,10 @@ uses(RefreshDatabase::class);
 
 describe('TransactionManager', function (): void {
     it('executes callback within transaction', function (): void {
-        $manager = new TransactionManager(User::class);
+        $manager = new TransactionManager(
+            connection: app(ConnectionInterface::class),
+            userTable: (new User)->getTable(),
+        );
 
         $result = $manager->transaction(function () {
             return User::create([
@@ -24,7 +28,10 @@ describe('TransactionManager', function (): void {
     });
 
     it('rolls back transaction on exception', function (): void {
-        $manager = new TransactionManager(User::class);
+        $manager = new TransactionManager(
+            connection: app(ConnectionInterface::class),
+            userTable: (new User)->getTable(),
+        );
 
         try {
             $manager->transaction(function () {
@@ -48,7 +55,10 @@ describe('TransactionManager', function (): void {
             'email' => 'test@example.com',
         ]);
 
-        $manager = new TransactionManager(User::class);
+        $manager = new TransactionManager(
+            connection: app(ConnectionInterface::class),
+            userTable: (new User)->getTable(),
+        );
 
         // This should not throw
         $manager->lockUserForUpdate($user);
@@ -56,8 +66,10 @@ describe('TransactionManager', function (): void {
         expect(true)->toBeTrue();
     });
 
-    it('uses default table when class does not exist', function (): void {
-        $manager = new TransactionManager('NonExistentClass');
+    it('uses default table name', function (): void {
+        $manager = new TransactionManager(
+            connection: app(ConnectionInterface::class),
+        );
 
         // Should use 'users' table as default
         $user = User::create([
@@ -70,8 +82,10 @@ describe('TransactionManager', function (): void {
         expect(true)->toBeTrue();
     });
 
-    it('uses default class when null provided', function (): void {
-        $manager = new TransactionManager;
+    it('executes transaction with default table', function (): void {
+        $manager = new TransactionManager(
+            connection: app(ConnectionInterface::class),
+        );
 
         $result = $manager->transaction(fn () => 'success');
 

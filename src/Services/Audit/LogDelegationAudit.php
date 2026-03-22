@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Services\Audit;
 
-use Illuminate\Support\Facades\Log;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Domain\Enums\DelegationAction;
+use Psr\Log\LoggerInterface;
 
 /**
  * Log-based implementation of audit logging.
@@ -16,7 +16,7 @@ use Ordain\Delegation\Domain\Enums\DelegationAction;
 final readonly class LogDelegationAudit extends AbstractDelegationAudit
 {
     public function __construct(
-        private string $channel = 'stack',
+        private LoggerInterface $logger,
     ) {}
 
     protected function log(
@@ -35,6 +35,6 @@ final readonly class LogDelegationAudit extends AbstractDelegationAudit
 
         $message = sprintf('[Delegation] %s', $action->label());
 
-        Log::channel($this->channel)->{$action->severity()}($message, $context);
+        $this->logger->{$action->severity()}($message, $context);
     }
 }

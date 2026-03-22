@@ -7,8 +7,10 @@ namespace Ordain\Delegation\Repositories;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
+use Ordain\Delegation\Adapters\SpatieRoleAdapterFactory;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
+use Ordain\Delegation\Contracts\RoleAdapterFactoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Spatie\Permission\Contracts\Role as SpatieRoleContract;
 use Spatie\Permission\Models\Role;
@@ -22,6 +24,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
 {
     public function __construct(
         private string $roleModelClass = Role::class,
+        private RoleAdapterFactoryInterface $adapterFactory = new SpatieRoleAdapterFactory,
     ) {}
 
     public function findById(int|string $id): ?RoleInterface
@@ -33,7 +36,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             return null;
         }
 
-        return SpatieRoleAdapter::fromModel($role);
+        return $this->adapterFactory->fromModel($role);
     }
 
     /**
@@ -46,7 +49,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             return collect();
         }
 
-        return SpatieRoleAdapter::collection(
+        return $this->adapterFactory->collection(
             $this->roleModelClass::whereIn('id', $ids)->get(),
         );
     }
@@ -66,7 +69,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             return null;
         }
 
-        return SpatieRoleAdapter::fromModel($role);
+        return $this->adapterFactory->fromModel($role);
     }
 
     /**
@@ -84,7 +87,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             $query->limit($limit);
         }
 
-        return SpatieRoleAdapter::collection($query->get());
+        return $this->adapterFactory->collection($query->get());
     }
 
     /**
@@ -99,7 +102,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
         }
 
         return $query->lazy()->map(
-            fn (SpatieRoleContract $role): RoleInterface => SpatieRoleAdapter::fromModel($role),
+            fn (SpatieRoleContract $role): RoleInterface => $this->adapterFactory->fromModel($role),
         );
     }
 
@@ -111,7 +114,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
         /** @var Collection<int, SpatieRoleContract> $roles */
         $roles = $user->roles()->get();
 
-        return SpatieRoleAdapter::collection($roles);
+        return $this->adapterFactory->collection($roles);
     }
 
     public function assignToUser(DelegatableUserInterface $user, RoleInterface $role): void
@@ -165,7 +168,7 @@ final readonly class SpatieRoleRepository implements RoleRepositoryInterface
             $query->where('guard_name', $guard);
         }
 
-        return SpatieRoleAdapter::collection($query->get());
+        return $this->adapterFactory->collection($query->get());
     }
 
     /**

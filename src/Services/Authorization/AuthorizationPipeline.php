@@ -4,17 +4,11 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Services\Authorization;
 
-use Illuminate\Pipeline\Pipeline;
+use Illuminate\Contracts\Pipeline\Pipeline;
 use Ordain\Delegation\Contracts\AuthorizationPipelineInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
-use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
-use Ordain\Delegation\Contracts\RootAdminResolverInterface;
-use Ordain\Delegation\Services\Authorization\Pipes\CheckHierarchyPipe;
-use Ordain\Delegation\Services\Authorization\Pipes\CheckRoleInScopePipe;
-use Ordain\Delegation\Services\Authorization\Pipes\CheckRootAdminPipe;
-use Ordain\Delegation\Services\Authorization\Pipes\CheckUserManagementPipe;
 
 /**
  * Processes authorization checks through a series of pipes.
@@ -23,8 +17,8 @@ final readonly class AuthorizationPipeline implements AuthorizationPipelineInter
 {
     public function __construct(
         private Pipeline $pipeline,
-        private RootAdminResolverInterface $rootAdminResolver,
-        private DelegationRepositoryInterface $delegationRepository,
+        /** @var array<object> */
+        private array $pipes,
     ) {}
 
     public function canAssignRole(
@@ -78,25 +72,10 @@ final readonly class AuthorizationPipeline implements AuthorizationPipelineInter
 
     private function process(AuthorizationContext $context): AuthorizationContext
     {
-        $pipes = $this->buildPipes();
-
         /** @var AuthorizationContext */
         return $this->pipeline
             ->send($context)
-            ->through($pipes)
+            ->through($this->pipes)
             ->then(fn (AuthorizationContext $ctx): AuthorizationContext => $ctx->isDenied() ? $ctx : $ctx->deny('No authorization granted'));
-    }
-
-    /**
-     * @return array<object>
-     */
-    private function buildPipes(): array
-    {
-        return [
-            new CheckRootAdminPipe($this->rootAdminResolver),
-            new CheckUserManagementPipe,
-            new CheckHierarchyPipe,
-            new CheckRoleInScopePipe($this->delegationRepository),
-        ];
     }
 }

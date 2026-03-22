@@ -13,7 +13,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new BladeDirectives)->register();
+    app(BladeDirectives::class)->register();
 });
 
 describe('BladeDirectives', function (): void {
