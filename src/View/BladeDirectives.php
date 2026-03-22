@@ -8,11 +8,12 @@ use Illuminate\Support\Facades\Blade;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
+use Throwable;
 
 /**
  * Registers Blade directives for delegation permission checks.
  */
-final readonly class BladeDirectives
+readonly class BladeDirectives
 {
     public function __construct(
         private DelegationServiceInterface $delegationService,
@@ -22,7 +23,7 @@ final readonly class BladeDirectives
     /**
      * Resolve the authenticated user using the configured guard.
      */
-    private static function resolveUser(): ?DelegatableUserInterface
+    protected static function resolveUser(): ?DelegatableUserInterface
     {
         /** @var string|null $guard */
         $guard = config('permission-delegation.guard');
@@ -43,48 +44,60 @@ final readonly class BladeDirectives
         $this->registerCanManageUser();
     }
 
-    private function registerCanDelegate(): void
+    protected function registerCanDelegate(): void
     {
         Blade::if('canDelegate', function (): bool {
-            $user = self::resolveUser();
+            try {
+                $user = self::resolveUser();
 
-            if ($user === null) {
+                if ($user === null) {
+                    return false;
+                }
+
+                return $this->delegationService->canCreateUsers($user);
+            } catch (Throwable) {
                 return false;
             }
-
-            return $this->delegationService->canCreateUsers($user);
         });
     }
 
-    private function registerCanAssignRole(): void
+    protected function registerCanAssignRole(): void
     {
         Blade::if('canAssignRole', function (string $roleName): bool {
-            $user = self::resolveUser();
+            try {
+                $user = self::resolveUser();
 
-            if ($user === null) {
+                if ($user === null) {
+                    return false;
+                }
+
+                $role = $this->roleRepository->findByName($roleName);
+
+                if ($role === null) {
+                    return false;
+                }
+
+                return $this->delegationService->canAssignRole($user, $role);
+            } catch (Throwable) {
                 return false;
             }
-
-            $role = $this->roleRepository->findByName($roleName);
-
-            if ($role === null) {
-                return false;
-            }
-
-            return $this->delegationService->canAssignRole($user, $role);
         });
     }
 
-    private function registerCanManageUser(): void
+    protected function registerCanManageUser(): void
     {
         Blade::if('canManageUser', function (DelegatableUserInterface $targetUser): bool {
-            $user = self::resolveUser();
+            try {
+                $user = self::resolveUser();
 
-            if ($user === null) {
+                if ($user === null) {
+                    return false;
+                }
+
+                return $this->delegationService->canManageUser($user, $targetUser);
+            } catch (Throwable) {
                 return false;
             }
-
-            return $this->delegationService->canManageUser($user, $targetUser);
         });
     }
 }

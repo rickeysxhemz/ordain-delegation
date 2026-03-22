@@ -10,19 +10,28 @@ use Ordain\Delegation\Contracts\RootAdminResolverInterface;
 
 final readonly class RootAdminResolver implements RootAdminResolverInterface
 {
+    /**
+     * @param  array<string>  $roleIdentifiers
+     */
     public function __construct(
         private RoleRepositoryInterface $roleRepository,
         private bool $enabled = true,
-        private ?string $roleIdentifier = null,
+        private array $roleIdentifiers = [],
         private ?string $guard = null,
     ) {}
 
     public function isRootAdmin(DelegatableUserInterface $user): bool
     {
-        if (! $this->enabled || $this->roleIdentifier === null) {
+        if (! $this->enabled || $this->roleIdentifiers === []) {
             return false;
         }
 
-        return $this->roleRepository->userHasRoleByName($user, $this->roleIdentifier, $this->guard);
+        foreach ($this->roleIdentifiers as $roleIdentifier) {
+            if ($this->roleRepository->userHasRoleByName($user, $roleIdentifier, $this->guard)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

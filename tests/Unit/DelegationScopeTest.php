@@ -42,7 +42,7 @@ final class DelegationScopeTest extends TestCase
     public function it_throws_exception_for_negative_max_users(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Max manageable users cannot be negative.');
+        $this->expectExceptionMessage('Max manageable users must be at least 1 or null for unlimited.');
 
         new DelegationScope(maxManageableUsers: -1);
     }

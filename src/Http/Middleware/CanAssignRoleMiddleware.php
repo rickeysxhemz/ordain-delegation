@@ -29,7 +29,8 @@ final readonly class CanAssignRoleMiddleware
      */
     public function handle(Request $request, Closure $next, string ...$roleNames): Response
     {
-        $user = $request->user();
+        $guard = config('permission-delegation.guard');
+        $user = $request->user($guard);
 
         if ($user === null) {
             abort(401, 'Unauthenticated.');

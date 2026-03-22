@@ -30,7 +30,7 @@ describe('DelegationScope', function (): void {
 
     it('throws on negative max users', function (): void {
         new DelegationScope(maxManageableUsers: -1);
-    })->throws(InvalidArgumentException::class, 'Max manageable users cannot be negative.');
+    })->throws(InvalidArgumentException::class, 'Max manageable users must be at least 1 or null for unlimited.');
 
     it('creates empty scope via none factory', function (): void {
         $scope = DelegationScope::none();

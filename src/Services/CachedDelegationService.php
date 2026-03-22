@@ -38,7 +38,7 @@ final readonly class CachedDelegationService implements CacheInvalidatorInterfac
         private CacheRepository $cache,
         private int $ttl = 3600,
         private string $prefix = 'delegation_',
-        private string $guardName = 'web',
+        private string $guardName = '',
     ) {}
 
     public function canAssignRole(

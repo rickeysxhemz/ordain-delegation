@@ -17,17 +17,17 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: false,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeFalse();
     });
 
-    it('returns false when role identifier is null', function (): void {
+    it('returns false when role identifiers is empty', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: null,
+            roleIdentifiers: [],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeFalse();
@@ -41,7 +41,7 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeTrue();
@@ -55,7 +55,7 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeFalse();
@@ -69,7 +69,7 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeFalse();
@@ -83,7 +83,7 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeTrue();
@@ -97,7 +97,7 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
             guard: 'admin',
         );
 
@@ -112,8 +112,42 @@ describe('isRootAdmin', function (): void {
         $resolver = new RootAdminResolver(
             roleRepository: $this->roleRepository,
             enabled: true,
-            roleIdentifier: 'root-admin',
+            roleIdentifiers: ['root-admin'],
             guard: 'admin',
+        );
+
+        expect($resolver->isRootAdmin($this->user))->toBeFalse();
+    });
+
+    it('returns true when user has any of multiple root admin roles', function (): void {
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin', null)
+            ->andReturn(false);
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'super-admin', null)
+            ->andReturn(true);
+
+        $resolver = new RootAdminResolver(
+            roleRepository: $this->roleRepository,
+            enabled: true,
+            roleIdentifiers: ['root-admin', 'super-admin'],
+        );
+
+        expect($resolver->isRootAdmin($this->user))->toBeTrue();
+    });
+
+    it('returns false when user has none of multiple root admin roles', function (): void {
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'root-admin', null)
+            ->andReturn(false);
+        $this->roleRepository->shouldReceive('userHasRoleByName')
+            ->with($this->user, 'super-admin', null)
+            ->andReturn(false);
+
+        $resolver = new RootAdminResolver(
+            roleRepository: $this->roleRepository,
+            enabled: true,
+            roleIdentifiers: ['root-admin', 'super-admin'],
         );
 
         expect($resolver->isRootAdmin($this->user))->toBeFalse();

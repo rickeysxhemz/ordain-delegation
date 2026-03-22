@@ -19,12 +19,13 @@ final readonly class AuditContext
     public function __construct(
         public string $ipAddress = self::CLI_IDENTIFIER,
         public string $userAgent = self::CLI_IDENTIFIER,
+        public string $guard = self::CLI_IDENTIFIER,
     ) {}
 
     /**
      * Create context from an HTTP request.
      */
-    public static function fromRequest(?Request $request): self
+    public static function fromRequest(?Request $request, ?string $guard = null): self
     {
         if ($request === null) {
             return new self;
@@ -33,6 +34,7 @@ final readonly class AuditContext
         return new self(
             ipAddress: $request->ip() ?? self::CLI_IDENTIFIER,
             userAgent: self::sanitizeUserAgent($request->userAgent()),
+            guard: $guard ?? self::CLI_IDENTIFIER,
         );
     }
 

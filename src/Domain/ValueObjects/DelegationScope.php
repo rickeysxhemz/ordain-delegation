@@ -32,8 +32,8 @@ final readonly class DelegationScope
         array $assignableRoleIds = [],
         array $assignablePermissionIds = [],
     ) {
-        if ($maxManageableUsers !== null && $maxManageableUsers < 0) {
-            throw new InvalidArgumentException('Max manageable users cannot be negative.');
+        if ($maxManageableUsers !== null && $maxManageableUsers < 1) {
+            throw new InvalidArgumentException('Max manageable users must be at least 1 or null for unlimited.');
         }
 
         // Validate and normalize role IDs (filter invalid, remove duplicates)

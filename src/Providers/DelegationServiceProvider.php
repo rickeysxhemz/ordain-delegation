@@ -244,7 +244,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
             static fn (Application $app): RootAdminResolver => new RootAdminResolver(
                 roleRepository: $app->make(RoleRepositoryInterface::class),
                 enabled: (bool) config('permission-delegation.root_admin.enabled', true),
-                roleIdentifier: config('permission-delegation.root_admin.role'),
+                roleIdentifiers: (array) config('permission-delegation.root_admin.role', []),
                 guard: config('permission-delegation.root_admin.guard'),
             ),
         );
@@ -285,7 +285,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
             static fn (Application $app): DatabaseDelegationAudit => new DatabaseDelegationAudit(
                 connection: $app->make(ConnectionInterface::class),
                 tableName: (string) config('permission-delegation.tables.delegation_audit_logs', 'delegation_audit_logs'),
-                context: AuditContext::fromRequest(request()),
+                context: AuditContext::fromRequest(request(), config('permission-delegation.guard')),
             ),
         );
 
@@ -315,6 +315,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
                     cache: $app->make('cache.store'),
                     ttl: (int) config('permission-delegation.cache.ttl', 3600),
                     prefix: (string) config('permission-delegation.cache.prefix', 'delegation_'),
+                    guardName: (string) config('permission-delegation.guard', 'web'),
                 );
             },
         );

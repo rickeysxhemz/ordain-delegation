@@ -26,7 +26,8 @@ final readonly class CanDelegateMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        $guard = config('permission-delegation.guard');
+        $user = $request->user($guard);
 
         if ($user === null) {
             abort(401, 'Unauthenticated.');

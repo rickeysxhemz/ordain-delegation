@@ -24,6 +24,7 @@ return new class extends Migration
             $table->json('metadata')->nullable(); // Additional context data
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
+            $table->string('guard', 50)->nullable();
             $table->timestamp('created_at')->useCurrent();
 
             // Get users table name dynamically

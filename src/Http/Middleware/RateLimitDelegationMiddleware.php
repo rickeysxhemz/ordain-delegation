@@ -55,7 +55,8 @@ final readonly class RateLimitDelegationMiddleware
      */
     private function resolveRequestKey(Request $request): string
     {
-        $userId = $request->user()?->getAuthIdentifier() ?? 'guest';
+        $guard = config('permission-delegation.guard');
+        $userId = $request->user($guard)?->getAuthIdentifier() ?? 'guest';
         $ip = $request->ip() ?? 'unknown';
 
         return "delegation_rate_limit:{$userId}:{$ip}";

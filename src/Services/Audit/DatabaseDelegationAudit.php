@@ -64,6 +64,7 @@ final readonly class DatabaseDelegationAudit extends AbstractDelegationAudit
             'metadata' => $this->safeJsonEncode($metadata),
             'ip_address' => $this->context->ipAddress,
             'user_agent' => $this->context->userAgent,
+            'guard' => $this->context->guard,
             'created_at' => new DateTimeImmutable,
         ]);
     }
