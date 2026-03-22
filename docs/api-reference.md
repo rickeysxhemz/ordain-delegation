@@ -45,7 +45,7 @@ public function canAssignPermission(
 
 #### canRevokeRole
 
-Check if delegator can revoke a role from target.
+Check if delegator can revoke a role from target. Uses a dedicated revocation pipeline path to ensure revocation-specific rules are applied.
 
 ```php
 public function canRevokeRole(
@@ -55,11 +55,18 @@ public function canRevokeRole(
 ): bool;
 ```
 
+**Parameters:**
+- `$delegator` - User attempting to revoke the role
+- `$role` - Role to revoke
+- `$target` - User from whom the role will be revoked
+
+**Returns:** `bool` - Whether revocation is allowed
+
 ---
 
 #### canRevokePermission
 
-Check if delegator can revoke a permission from target.
+Check if delegator can revoke a permission from target. Uses a dedicated revocation pipeline path to ensure revocation-specific rules are applied.
 
 ```php
 public function canRevokePermission(
@@ -68,6 +75,13 @@ public function canRevokePermission(
     DelegatableUserInterface $target,
 ): bool;
 ```
+
+**Parameters:**
+- `$delegator` - User attempting to revoke the permission
+- `$permission` - Permission to revoke
+- `$target` - User from whom the permission will be revoked
+
+**Returns:** `bool` - Whether revocation is allowed
 
 ---
 
@@ -251,7 +265,7 @@ public function batchRevokeRoles(
 
 #### syncRoles
 
-Replace target's roles with new set.
+Sync target's roles to an exact set. Revokes any roles not in the provided array and assigns any missing roles. The delegator must be authorized to both assign and revoke each affected role.
 
 ```php
 public function syncRoles(
@@ -260,6 +274,13 @@ public function syncRoles(
     array $roles,
 ): void;
 ```
+
+**Parameters:**
+- `$delegator` - User performing the sync
+- `$target` - User whose roles will be synced
+- `$roles` - Array of `RoleInterface` instances representing the desired role set
+
+**Throws:** `UnauthorizedDelegationException` if not authorized for any assignment or revocation
 
 ---
 
@@ -293,7 +314,7 @@ public function batchRevokePermissions(
 
 #### syncPermissions
 
-Replace target's permissions with new set.
+Sync target's permissions to an exact set. Revokes any permissions not in the provided array and grants any missing permissions. The delegator must be authorized to both grant and revoke each affected permission.
 
 ```php
 public function syncPermissions(
@@ -302,6 +323,13 @@ public function syncPermissions(
     array $permissions,
 ): void;
 ```
+
+**Parameters:**
+- `$delegator` - User performing the sync
+- `$target` - User whose permissions will be synced
+- `$permissions` - Array of `PermissionInterface` instances representing the desired permission set
+
+**Throws:** `UnauthorizedDelegationException` if not authorized for any grant or revocation
 
 ### Scope Management
 

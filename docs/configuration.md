@@ -209,6 +209,32 @@ Configure delegation validation rules:
 | `require_own_access` | Delegator must have the role/permission themselves to assign it |
 | `prevent_privilege_escalation` | Prevent assigning roles/permissions with higher privileges |
 
+## Guard
+
+Configure which authentication guard the package uses:
+
+```php
+'guard' => env('DELEGATION_GUARD', null),
+```
+
+| Option | Description |
+|--------|-------------|
+| `null` | Uses Laravel's default guard |
+| `'admin'` | Uses the `admin` guard for all delegation checks |
+
+This is useful in applications with multiple guards (e.g., separate `web` and `admin` guards). When set, all authorization checks, Blade directives, and middleware will resolve the authenticated user from the specified guard instead of the default one.
+
+```php
+// config/permission-delegation.php
+'guard' => 'admin', // Use admin guard for delegation
+```
+
+Set via environment variable:
+
+```env
+DELEGATION_GUARD=admin
+```
+
 ## Environment Variables
 
 All configuration options can be set via environment variables:
@@ -236,6 +262,9 @@ DELEGATION_CACHE_TTL=3600
 DELEGATION_RATE_LIMIT_ENABLED=true
 DELEGATION_RATE_LIMIT_ATTEMPTS=60
 DELEGATION_RATE_LIMIT_DECAY=1
+
+# Guard
+DELEGATION_GUARD=null
 
 # Events
 DELEGATION_EVENTS_ENABLED=true

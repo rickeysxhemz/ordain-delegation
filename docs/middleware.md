@@ -160,6 +160,8 @@ Configure in `config/permission-delegation.php`:
 - Returns `429 Too Many Requests` when limit exceeded
 - Includes `Retry-After` header
 
+> **Note:** Rate limiting uses `RateLimiterInterface` under the hood. You can customize the rate limiting behavior by binding your own implementation of this interface in your service provider. See [Customization](customization.md) for details.
+
 ## Combining Middleware
 
 Stack multiple middleware for comprehensive protection:

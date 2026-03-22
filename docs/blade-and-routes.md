@@ -407,6 +407,19 @@ Route::middleware('auth')->group(function () {
 @endsection
 ```
 
+## Multi-Guard Support
+
+Blade directives respect the `guard` configuration option. When a custom guard is configured, all Blade directives will resolve the authenticated user from that guard instead of the default one.
+
+```php
+// config/permission-delegation.php
+'guard' => 'admin', // Use admin guard for Blade directives
+```
+
+With this configuration, `@canDelegate`, `@canAssignRole`, and `@canManageUser` will check against `auth('admin')->user()` instead of `auth()->user()`. This is useful when your application uses separate guards for different user types (e.g., a dedicated admin panel).
+
+If `guard` is set to `null` (the default), Blade directives use Laravel's default guard.
+
 ## Next Steps
 
 - [Events](events.md) - React to delegation actions

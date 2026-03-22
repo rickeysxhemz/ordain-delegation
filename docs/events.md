@@ -456,6 +456,24 @@ public function handle(RoleDelegated $event): void
 }
 ```
 
+## Event Factory
+
+Events are created through the `DelegationEventFactoryInterface`. By default, the package uses `DelegationEventFactory` which creates the standard event classes listed above.
+
+You can customize event creation by binding your own implementation of `DelegationEventFactoryInterface` in your service provider. This allows you to:
+
+- Add custom properties to events (e.g., IP address, request context)
+- Use entirely different event classes
+- Integrate with external event systems or message buses
+
+```php
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
+
+$this->app->bind(DelegationEventFactoryInterface::class, CustomEventFactory::class);
+```
+
+See [Customization](customization.md) for a full implementation example.
+
 ## Testing Events
 
 ### Assert Events Dispatched

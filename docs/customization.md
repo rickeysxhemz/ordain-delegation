@@ -576,6 +576,227 @@ public function render($request, Throwable $e): Response
 }
 ```
 
+## Custom Role Adapter Factory
+
+Implement `RoleAdapterFactoryInterface` to customize how role models are wrapped into `RoleInterface` instances:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Factories;
+
+use Illuminate\Support\Collection;
+use Ordain\Delegation\Contracts\RoleAdapterFactoryInterface;
+use Ordain\Delegation\Contracts\RoleInterface;
+
+final readonly class CustomRoleAdapterFactory implements RoleAdapterFactoryInterface
+{
+    public function fromModel(mixed $model): RoleInterface
+    {
+        return new CustomRoleAdapter($model);
+    }
+
+    public function collection(Collection $models): Collection
+    {
+        return $models->map(fn (mixed $model) => $this->fromModel($model));
+    }
+}
+```
+
+### Register Custom Role Adapter Factory
+
+```php
+// AppServiceProvider.php
+use Ordain\Delegation\Contracts\RoleAdapterFactoryInterface;
+
+public function register(): void
+{
+    $this->app->bind(RoleAdapterFactoryInterface::class, CustomRoleAdapterFactory::class);
+}
+```
+
+## Custom Permission Adapter Factory
+
+The same pattern applies for permissions via `PermissionAdapterFactoryInterface`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Factories;
+
+use Illuminate\Support\Collection;
+use Ordain\Delegation\Contracts\PermissionAdapterFactoryInterface;
+use Ordain\Delegation\Contracts\PermissionInterface;
+
+final readonly class CustomPermissionAdapterFactory implements PermissionAdapterFactoryInterface
+{
+    public function fromModel(mixed $model): PermissionInterface
+    {
+        return new CustomPermissionAdapter($model);
+    }
+
+    public function collection(Collection $models): Collection
+    {
+        return $models->map(fn (mixed $model) => $this->fromModel($model));
+    }
+}
+```
+
+### Register Custom Permission Adapter Factory
+
+```php
+// AppServiceProvider.php
+use Ordain\Delegation\Contracts\PermissionAdapterFactoryInterface;
+
+public function register(): void
+{
+    $this->app->bind(PermissionAdapterFactoryInterface::class, CustomPermissionAdapterFactory::class);
+}
+```
+
+## Custom Event Factory
+
+Implement `DelegationEventFactoryInterface` to customize how delegation events are created. This allows you to add custom properties, use different event classes, or integrate with external event systems:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Factories;
+
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
+
+final readonly class CustomEventFactory implements DelegationEventFactoryInterface
+{
+    public function createRoleDelegated(...): object
+    {
+        // Return your custom event instance
+    }
+
+    public function createRoleRevoked(...): object
+    {
+        // Return your custom event instance
+    }
+
+    public function createPermissionGranted(...): object
+    {
+        // Return your custom event instance
+    }
+
+    public function createPermissionRevoked(...): object
+    {
+        // Return your custom event instance
+    }
+
+    public function createDelegationScopeUpdated(...): object
+    {
+        // Return your custom event instance
+    }
+}
+```
+
+### Register Custom Event Factory
+
+```php
+// AppServiceProvider.php
+use Ordain\Delegation\Contracts\DelegationEventFactoryInterface;
+
+public function register(): void
+{
+    $this->app->bind(DelegationEventFactoryInterface::class, CustomEventFactory::class);
+}
+```
+
+## Custom Rate Limiter
+
+Implement `RateLimiterInterface` for custom rate limiting logic (e.g., using Redis directly, or a distributed rate limiter):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use Ordain\Delegation\Contracts\RateLimiterInterface;
+
+final readonly class RedisRateLimiter implements RateLimiterInterface
+{
+    public function tooManyAttempts(string $key, int $maxAttempts): bool
+    {
+        // Custom logic to check if too many attempts
+    }
+
+    public function hit(string $key, int $decaySeconds): int
+    {
+        // Record an attempt and return total count
+    }
+
+    public function remaining(string $key, int $maxAttempts): int
+    {
+        // Return remaining attempts
+    }
+
+    public function availableIn(string $key): int
+    {
+        // Return seconds until rate limit resets
+    }
+}
+```
+
+### Register Custom Rate Limiter
+
+```php
+// AppServiceProvider.php
+use Ordain\Delegation\Contracts\RateLimiterInterface;
+
+public function register(): void
+{
+    $this->app->bind(RateLimiterInterface::class, RedisRateLimiter::class);
+}
+```
+
+## Custom Cache Invalidator
+
+Implement `CacheInvalidatorInterface` for custom cache invalidation strategies:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
+use Ordain\Delegation\Contracts\DelegatableUserInterface;
+
+final readonly class CustomCacheInvalidator implements CacheInvalidatorInterface
+{
+    public function forgetUserCache(DelegatableUserInterface $user): void
+    {
+        // Custom cache invalidation logic
+        // e.g., tag-based invalidation, CDN purging, etc.
+    }
+}
+```
+
+### Register Custom Cache Invalidator
+
+```php
+// AppServiceProvider.php
+use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
+
+public function register(): void
+{
+    $this->app->bind(CacheInvalidatorInterface::class, CustomCacheInvalidator::class);
+}
+```
+
 ## Next Steps
 
 - [API Reference](api-reference.md) - Complete method reference

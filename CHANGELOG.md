@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - YYYY-MM-DD
+## [1.1.0] - 2026-03-22
+
+### Added
+- Multi-guard support via `guard` configuration option
+- `syncRoles()` and `syncPermissions()` methods on `DelegationServiceInterface`
+- Dedicated `canRevokeRole()` and `canRevokePermission()` authorization pipeline methods
+- `RoleAdapterFactoryInterface` and `PermissionAdapterFactoryInterface` for decoupled adapter creation
+- `DelegationEventFactoryInterface` for customizable event creation
+- `CacheInvalidatorInterface` for abstracted cache invalidation
+- `RateLimiterInterface` for customizable rate limiting
+- `SpatieRoleAdapterFactory` and `SpatiePermissionAdapterFactory` concrete implementations
+- `DelegationEventFactory` concrete implementation
+- `LaravelRateLimiterAdapter` concrete implementation
+
+### Changed
+- `AuthorizationPipeline` now accepts injectable pipes array instead of hardcoding pipe instantiation
+- `TransactionManager` uses injected `ConnectionInterface` instead of `DB` facade
+- `DatabaseDelegationAudit` uses injected `ConnectionInterface` instead of `DB` facade
+- `LogDelegationAudit` uses injected `LoggerInterface` instead of `Log` facade
+- `DelegationService` uses `DelegationEventFactoryInterface` instead of direct event instantiation
+- `BladeDirectives` uses constructor-injected services instead of `app()` service locator
+- `RateLimitDelegationMiddleware` uses `RateLimiterInterface` instead of concrete `RateLimiter`
+- `CachedDelegationService` now implements `CacheInvalidatorInterface`
+- Removed `DelegationBladeServiceProvider` from auto-discovery (handled by main provider)
+
+### Fixed
+- Blade directives now respect configured auth guard (multi-guard support)
+- Revocation methods use dedicated pipeline path instead of reusing assignment pipeline
+
+## [1.0.0] - 2026-03-22
 
 ### Added
 - Initial release

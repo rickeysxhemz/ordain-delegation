@@ -26,6 +26,7 @@ Without delegation control, a team lead could assign admin roles, create unlimit
 - **Comprehensive audit logging** - Track all delegation actions
 - **Domain events** - React to delegation changes
 - **Built-in caching** - Optimized for performance
+- **Multi-guard support** - Works with custom authentication guards
 - **Blade directives & route macros** - Convenient view and routing helpers
 - **Artisan commands** - CLI tools for management
 - **Octane compatible** - Ready for high-performance deployments
