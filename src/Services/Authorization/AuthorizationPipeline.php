@@ -21,21 +21,11 @@ use Ordain\Delegation\Services\Authorization\Pipes\CheckUserManagementPipe;
  */
 final readonly class AuthorizationPipeline implements AuthorizationPipelineInterface
 {
-    /** @var array<class-string> */
-    private array $pipes;
-
     public function __construct(
         private Pipeline $pipeline,
         private RootAdminResolverInterface $rootAdminResolver,
         private DelegationRepositoryInterface $delegationRepository,
-    ) {
-        $this->pipes = [
-            CheckRootAdminPipe::class,
-            CheckUserManagementPipe::class,
-            CheckHierarchyPipe::class,
-            CheckRoleInScopePipe::class,
-        ];
-    }
+    ) {}
 
     public function canAssignRole(
         DelegatableUserInterface $delegator,

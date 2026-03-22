@@ -55,5 +55,25 @@ parameters:
         - identifier: missingType.generics
           path: src/Traits/HasDelegation.php
 
+        # Test: DB::table()->first() returns stdClass|null
+        - identifier: property.nonObject
+          path: tests/*
+
+        # Test: Pest test methods (artisan, actingAs) not visible to PHPStan
+        - identifier: method.notFound
+          path: tests/*
+
+        # Test: method on nullable type in tests
+        - identifier: method.nonObject
+          path: tests/*
+
+        # Test: argument.type in test files (e.g. User::create, fclose, where column, DelegationScope)
+        - identifier: argument.type
+          path: tests/*
+
+        # Test: generic type parameters in test specifications
+        - identifier: missingType.generics
+          path: tests/*
+
     excludePaths:
         - tests/Pest.php

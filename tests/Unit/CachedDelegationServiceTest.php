@@ -339,4 +339,26 @@ describe('CachedDelegationService', function (): void {
 
         $this->service->revokePermissions($this->delegator, $this->target, [$this->permission, $perm2]);
     });
+
+    it('invalidates cache on syncRoles', function (): void {
+        $this->inner->shouldReceive('syncRoles')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->role]);
+
+        // Forget delegator cache (4 keys) + target cache (4 keys)
+        $this->cache->shouldReceive('forget')->times(8);
+
+        $this->service->syncRoles($this->delegator, $this->target, [$this->role]);
+    });
+
+    it('invalidates cache on syncPermissions', function (): void {
+        $this->inner->shouldReceive('syncPermissions')
+            ->once()
+            ->with($this->delegator, $this->target, [$this->permission]);
+
+        // Forget delegator cache (4 keys) + target cache (4 keys)
+        $this->cache->shouldReceive('forget')->times(8);
+
+        $this->service->syncPermissions($this->delegator, $this->target, [$this->permission]);
+    });
 });

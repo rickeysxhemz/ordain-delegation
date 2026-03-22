@@ -794,4 +794,170 @@ describe('DelegationService', function (): void {
             $this->service->revokePermissions($delegator, $target, [$perm1, $perm2]);
         });
     });
+
+    describe('syncRoles', function (): void {
+        it('assigns missing roles and revokes extra roles', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $existingRole = createMockRole(1, 'editor');
+            $newRole = createMockRole(2, 'moderator');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->roleRepository->shouldReceive('getUserRoles')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection([$existingRole]));
+
+            // existingRole not in desired set → revoke
+            $this->authorizer->shouldReceive('canRevokeRole')
+                ->with($delegator, $existingRole, $target)
+                ->andReturn(true);
+            $this->roleRepository->shouldReceive('removeFromUser')
+                ->once()
+                ->with($target, $existingRole);
+            $this->audit->shouldReceive('logRoleRevoked')->once();
+
+            // newRole not in current set → assign
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $newRole, $target)
+                ->andReturn(true);
+            $this->roleRepository->shouldReceive('assignToUser')
+                ->once()
+                ->with($target, $newRole);
+            $this->audit->shouldReceive('logRoleAssigned')->once();
+
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->syncRoles($delegator, $target, [$newRole]);
+        });
+
+        it('does nothing when roles already match', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $role = createMockRole(1, 'editor');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->roleRepository->shouldReceive('getUserRoles')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection([$role]));
+
+            $this->roleRepository->shouldNotReceive('assignToUser');
+            $this->roleRepository->shouldNotReceive('removeFromUser');
+
+            $this->service->syncRoles($delegator, $target, [$role]);
+        });
+
+        it('throws when not authorized to assign a role', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $newRole = createMockRole(1, 'admin');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->roleRepository->shouldReceive('getUserRoles')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection);
+
+            $this->authorizer->shouldReceive('canAssignRole')
+                ->with($delegator, $newRole, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')->once();
+
+            $this->service->syncRoles($delegator, $target, [$newRole]);
+        })->throws(UnauthorizedDelegationException::class);
+    });
+
+    describe('syncPermissions', function (): void {
+        it('grants missing permissions and revokes extra permissions', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $existingPerm = createMockPermission(1, 'create-posts');
+            $newPerm = createMockPermission(2, 'edit-posts');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->permissionRepository->shouldReceive('getUserPermissions')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection([$existingPerm]));
+
+            // existingPerm not in desired set → revoke
+            $this->authorizer->shouldReceive('canRevokePermission')
+                ->with($delegator, $existingPerm, $target)
+                ->andReturn(true);
+            $this->permissionRepository->shouldReceive('removeFromUser')
+                ->once()
+                ->with($target, $existingPerm);
+            $this->audit->shouldReceive('logPermissionRevoked')->once();
+
+            // newPerm not in current set → grant
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $newPerm, $target)
+                ->andReturn(true);
+            $this->permissionRepository->shouldReceive('assignToUser')
+                ->once()
+                ->with($target, $newPerm);
+            $this->audit->shouldReceive('logPermissionGranted')->once();
+
+            $this->eventDispatcher->shouldReceive('dispatch')->twice();
+
+            $this->service->syncPermissions($delegator, $target, [$newPerm]);
+        });
+
+        it('does nothing when permissions already match', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $perm = createMockPermission(1, 'create-posts');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->permissionRepository->shouldReceive('getUserPermissions')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection([$perm]));
+
+            $this->permissionRepository->shouldNotReceive('assignToUser');
+            $this->permissionRepository->shouldNotReceive('removeFromUser');
+
+            $this->service->syncPermissions($delegator, $target, [$perm]);
+        });
+
+        it('throws when not authorized to grant a permission', function (): void {
+            $delegator = createMockUser(1);
+            $target = createMockUser(2);
+            $newPerm = createMockPermission(1, 'delete-posts');
+
+            $this->transactionManager->shouldReceive('transaction')
+                ->once()
+                ->andReturnUsing(fn ($callback) => $callback());
+
+            $this->permissionRepository->shouldReceive('getUserPermissions')
+                ->once()
+                ->with($target)
+                ->andReturn(new Collection);
+
+            $this->authorizer->shouldReceive('canAssignPermission')
+                ->with($delegator, $newPerm, $target)
+                ->andReturn(false);
+
+            $this->audit->shouldReceive('logUnauthorizedAttempt')->once();
+
+            $this->service->syncPermissions($delegator, $target, [$newPerm]);
+        })->throws(UnauthorizedDelegationException::class);
+    });
 });

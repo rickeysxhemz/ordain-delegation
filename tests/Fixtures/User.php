@@ -12,6 +12,15 @@ use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Test fixture User model.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string $password
+ * @property bool $can_manage_users
+ * @property int|null $max_manageable_users
+ * @property int|string|null $created_by_user_id
+ * @property string|null $remember_token
  */
 class User extends Model implements Authenticatable, DelegatableUserInterface
 {
