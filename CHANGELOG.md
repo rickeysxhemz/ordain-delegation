@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Laravel 13.x support (`illuminate/*` constraints widened to `^11.0|^12.0|^13.0`)
+- Laravel 13.x support (`illuminate/*` constraints are now `^12.0|^13.0`)
 - `orchestra/testbench` `^11.0` for testing against Laravel 13
 - CI matrix coverage for Laravel 13 and PHP 8.5
 - `composer-runtime-api` `^2.2` requirement, for resolving the installed package version at runtime
@@ -23,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cache.serializable_classes` hardening, which blocks unserializing arbitrary PHP objects by default.
 - Cache entries written by earlier versions are ignored rather than trusted; the affected key is recomputed and
   rewritten in the new format on first read, so no cache flush is required when upgrading.
+
+### Removed
+- **BREAKING:** Laravel 11.x support. `illuminate/*` is now `^12.0|^13.0` and `orchestra/testbench` is
+  `^10.0|^11.0`; the CI matrix drops its `11.*` rows.
+
+  Laravel 11 is no longer installable. Composer 2.9+ enables `policy.advisories.block` by default, and
+  three unresolved advisories affect `laravel/framework` — PKSA-3r5d-mb8f-1qw9 (high, CRLF injection in
+  the default email rule), PKSA-mdq4-51ck-6kdq (CVE-2026-48019, same issue) and PKSA-m5cs-t1y6-qpcs
+  (medium, temporary signed URL path confusion). They affect every release from v11.0.0 through v11.56.1,
+  so there is no patched 11.x to move to; Laravel 12 received the fixes, Laravel 11 did not. Keeping the
+  constraint would advertise a version that a default Composer install refuses to resolve, and the only
+  workaround is disabling advisory blocking — opting into a knowingly vulnerable framework.
+
+  The package code itself remains compatible with Laravel 11: the suite passes 540 tests and PHPStan is
+  clean against v11.56.1. The removal is about installability, not source compatibility.
 
 ### Fixed
 - `delegation:cache-reset --all` cleared nothing. It built cache keys by hand using the long type names

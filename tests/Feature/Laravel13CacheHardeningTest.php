@@ -20,7 +20,7 @@ use Spatie\Permission\Models\Role;
  *
  * The array store is configured to serialize values, so every cache read
  * passes through unserialize(['allowed_classes' => false]) inside the
- * framework itself. Skipped on Laravel 11/12, where the option does not
+ * framework itself. Skipped on Laravel 12, where the option does not
  * exist; CacheSerializationTest covers those versions via simulation.
  */
 final class Laravel13CacheHardeningTest extends TestCase

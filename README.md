@@ -34,7 +34,7 @@ Without delegation control, a team lead could assign admin roles, create unlimit
 ## Requirements
 
 - PHP 8.2+ (PHP 8.3+ for Laravel 13)
-- Laravel 11.x, 12.x, or 13.x
+- Laravel 12.x or 13.x
 - [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^6.0 (^6.25 for Laravel 13)
 
 ## Installation
