@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Commands;
 
-use Illuminate\Cache\Repository;
-use Illuminate\Cache\TaggableStore;
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\Repositories\UserRepositoryInterface;
@@ -21,7 +18,7 @@ final class CacheResetCommand extends Command
      */
     protected $signature = 'delegation:cache-reset
                             {user? : Optional user ID to clear cache for specific user}
-                            {--all : Clear all delegation cache (requires cache tags or prefix scan)}';
+                            {--all : Clear delegation cache for every user}';
 
     /**
      * The console command description.
@@ -34,22 +31,19 @@ final class CacheResetCommand extends Command
      * Execute the console command.
      */
     public function handle(
-        CacheRepository $cache,
         DelegationServiceInterface $delegationService,
         UserRepositoryInterface $userRepository,
     ): int {
         /** @var string|null $userId */
         $userId = $this->argument('user');
         $clearAll = (bool) $this->option('all');
-        /** @var string $prefix */
-        $prefix = config('permission-delegation.cache.prefix', 'delegation_');
 
         if ($userId !== null) {
-            return $this->clearUserCache($cache, $delegationService, $userRepository, $userId, $prefix);
+            return $this->clearUserCache($delegationService, $userRepository, $userId);
         }
 
         if ($clearAll) {
-            return $this->clearAllCache($cache, $userRepository, $prefix);
+            return $this->clearAllCache($delegationService, $userRepository);
         }
 
         $this->info('Delegation Cache Reset');
@@ -59,9 +53,7 @@ final class CacheResetCommand extends Command
         $this->line('    Clear cache for a specific user');
         $this->newLine();
         $this->line('  <fg=green>php artisan delegation:cache-reset --all</>');
-        $this->line('    Attempt to clear all delegation cache');
-        $this->newLine();
-        $this->warn('Note: For complete cache clearing, consider using a cache driver that supports tags (Redis, Memcached).');
+        $this->line('    Clear cache for every user');
 
         return self::SUCCESS;
     }
@@ -70,11 +62,9 @@ final class CacheResetCommand extends Command
      * Clear cache for a specific user.
      */
     private function clearUserCache(
-        CacheRepository $cache,
         DelegationServiceInterface $delegationService,
         UserRepositoryInterface $userRepository,
         string $userId,
-        string $prefix,
     ): int {
         $user = $userRepository->findById($userId);
 
@@ -84,76 +74,50 @@ final class CacheResetCommand extends Command
             return self::FAILURE;
         }
 
-        // Clear known cache keys for this user
-        $keysCleared = 0;
-        $cacheTypes = [
-            'scope',
-            'assignable_roles',
-            'assignable_perms',
-            'can_create_users',
-        ];
+        if (! $delegationService instanceof CacheInvalidatorInterface) {
+            $this->warnCachingDisabled();
 
-        foreach ($cacheTypes as $type) {
-            $key = "{$prefix}{$type}_{$userId}";
-            if ($cache->forget($key)) {
-                $keysCleared++;
-            }
+            return self::SUCCESS;
         }
+
+        $delegationService->forgetUserCache($user);
 
         $this->info("Cache cleared for user #{$userId}");
-        $this->line('  Keys processed: '.count($cacheTypes));
-        $this->line("  Keys cleared: {$keysCleared}");
-
-        // Check if using CachedDelegationService
-        if ($delegationService instanceof CacheInvalidatorInterface) {
-            $delegationService->forgetUserCache($user);
-            $this->line('  <fg=green>CachedDelegationService cache invalidated.</>');
-        }
+        $this->newLine();
+        $this->warnAboutRoleScopedKeys();
 
         return self::SUCCESS;
     }
 
     /**
-     * Attempt to clear all delegation cache.
+     * Clear delegation cache for every user.
      */
     private function clearAllCache(
-        CacheRepository $cache,
+        DelegationServiceInterface $delegationService,
         UserRepositoryInterface $userRepository,
-        string $prefix,
     ): int {
         $this->warn('Clearing all delegation cache...');
 
-        // Check if cache supports tags (Redis, Memcached)
-        if ($cache instanceof Repository && $cache->getStore() instanceof TaggableStore) {
-            $cache->tags(['delegation'])->flush();
-            $this->info('All delegation cache cleared via tags.');
+        if (! $delegationService instanceof CacheInvalidatorInterface) {
+            $this->warnCachingDisabled();
 
             return self::SUCCESS;
         }
 
-        // Fallback: Clear known patterns
-        $this->line('Cache tags not supported by current driver. Clearing known patterns...');
-
         $userIds = $userRepository->getAllIds();
-        $keysCleared = 0;
-
-        $cacheTypes = [
-            'scope',
-            'assignable_roles',
-            'assignable_perms',
-            'can_create_users',
-        ];
+        $usersProcessed = 0;
 
         $bar = $this->output->createProgressBar($userIds->count());
         $bar->start();
 
         foreach ($userIds as $userId) {
-            foreach ($cacheTypes as $type) {
-                $key = "{$prefix}{$type}_{$userId}";
-                if ($cache->forget($key)) {
-                    $keysCleared++;
-                }
+            $user = $userRepository->findById($userId);
+
+            if ($user !== null) {
+                $delegationService->forgetUserCache($user);
+                $usersProcessed++;
             }
+
             $bar->advance();
         }
 
@@ -161,13 +125,29 @@ final class CacheResetCommand extends Command
         $this->newLine(2);
 
         $this->info('Cache clearing complete.');
-        $this->line("  Users processed: {$userIds->count()}");
-        $this->line("  Keys cleared: {$keysCleared}");
+        $this->line("  Users processed: {$usersProcessed}");
 
         $this->newLine();
-        $this->warn('Note: Role/permission-specific cache keys (can_assign_role_*, can_assign_perm_*) may still exist.');
-        $this->line('These will expire based on TTL or can be cleared by flushing the entire cache store.');
+        $this->warnAboutRoleScopedKeys();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Warn that there is no delegation cache to clear.
+     */
+    private function warnCachingDisabled(): void
+    {
+        $this->warn('Delegation caching is disabled - there is nothing to clear.');
+        $this->line('Enable <fg=green>permission-delegation.cache.enabled</> to use this command.');
+    }
+
+    /**
+     * Warn about the cache entries this command intentionally leaves alone.
+     */
+    private function warnAboutRoleScopedKeys(): void
+    {
+        $this->warn('Note: role- and permission-scoped cache keys (can_assign_role_*, can_assign_perm_*) are not cleared.');
+        $this->line('These expire based on TTL, or can be cleared by flushing the entire cache store.');
     }
 }

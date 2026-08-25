@@ -174,17 +174,21 @@ php artisan tinker
 **Solution:**
 
 ```php
-// Clear cache after scope changes
-Delegation::forgetCache($user);
-
-// Or clear all delegation caches
-php artisan delegation:cache-reset
+// Clear cache after scope changes. Only the caching decorator exposes this,
+// so guard the call if caching may be disabled.
+if ($delegation instanceof \Ordain\Delegation\Contracts\CacheInvalidatorInterface) {
+    $delegation->forgetUserCache($user);
+}
 ```
 
-**For Redis/Memcached with tags:**
-```php
-Cache::tags(['delegation'])->flush();
+```bash
+# Or clear the delegation cache for every user
+php artisan delegation:cache-reset --all
 ```
+
+**Note on cache tags:** the package does not tag its cache entries, so
+`Cache::tags(['delegation'])->flush()` will not clear them regardless of driver.
+Use `delegation:cache-reset --all`, or flush the cache store entirely.
 
 ---
 
@@ -449,7 +453,7 @@ php artisan delegation:show {user_id}
 ### Clear Cache
 
 ```bash
-php artisan delegation:cache-reset
+php artisan delegation:cache-reset --all
 ```
 
 ### Debug Mode

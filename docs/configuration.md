@@ -136,7 +136,7 @@ When enabled, the following is cached per user:
 php artisan delegation:cache-reset 123
 
 # Clear cache for all users
-php artisan delegation:cache-reset
+php artisan delegation:cache-reset --all
 ```
 
 Or programmatically:

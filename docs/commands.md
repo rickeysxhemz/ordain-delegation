@@ -158,8 +158,11 @@ The delegator (ID: 2) can only assign: editor, moderator
 Clear delegation cache for one or all users.
 
 ```bash
-php artisan delegation:cache-reset {user?}
+php artisan delegation:cache-reset {user?} {--all}
 ```
+
+Invoked with no argument and no option, the command prints usage rather than
+clearing anything — pass a user ID or `--all`.
 
 ### Arguments
 
@@ -167,33 +170,49 @@ php artisan delegation:cache-reset {user?}
 |----------|-------------|
 | `user` | (Optional) User ID to clear cache for |
 
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--all` | Clear delegation cache for every user |
+
 ### Examples
 
 ```bash
-# Clear cache for specific user
+# Clear cache for a specific user
 php artisan delegation:cache-reset 5
 
-# Clear all delegation caches
-php artisan delegation:cache-reset
+# Clear cache for every user
+php artisan delegation:cache-reset --all
 ```
 
 ### Output
 
 ```bash
 $ php artisan delegation:cache-reset 5
-✓ Cache cleared for user #5.
+Cache cleared for user #5
 
-$ php artisan delegation:cache-reset
-Clearing delegation cache for all users...
-✓ Cleared cache for 47 users.
+Note: role- and permission-scoped cache keys (can_assign_role_*, can_assign_perm_*) are not cleared.
+These expire based on TTL, or can be cleared by flushing the entire cache store.
+
+$ php artisan delegation:cache-reset --all
+Clearing all delegation cache...
+ 47/47 [============================] 100%
+
+Cache clearing complete.
+  Users processed: 47
 ```
 
-### Options
+### Scope
 
-```bash
-# Skip confirmation for clearing all
-php artisan delegation:cache-reset --force
-```
+The command clears the per-user entries that `CachedDelegationService` writes:
+the delegation scope, assignable roles, assignable permissions, and the
+user-creation check. Role- and permission-scoped authorization results
+(`can_assign_role_*`, `can_assign_perm_*`) are left to expire via TTL, since
+they are keyed per role and per permission.
+
+If caching is disabled via `permission-delegation.cache.enabled`, the command
+reports that there is nothing to clear.
 
 ## delegation:health
 
@@ -285,7 +304,7 @@ You might want to schedule some commands:
 protected function schedule(Schedule $schedule): void
 {
     // Clear expired cache entries nightly
-    $schedule->command('delegation:cache-reset')
+    $schedule->command('delegation:cache-reset --all')
         ->daily()
         ->at('03:00');
 
