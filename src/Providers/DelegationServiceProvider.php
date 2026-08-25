@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\Providers;
 
+use Composer\InstalledVersions;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\DeferrableProvider;
@@ -77,6 +78,21 @@ use Ordain\Delegation\View\BladeDirectives;
  */
 final class DelegationServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    /**
+     * Composer package name, used to resolve the installed version at runtime.
+     */
+    private const PACKAGE_NAME = 'ordain/delegation';
+
+    /**
+     * Resolve the installed package version from Composer's runtime metadata.
+     */
+    private static function packageVersion(): string
+    {
+        return InstalledVersions::isInstalled(self::PACKAGE_NAME)
+            ? InstalledVersions::getPrettyVersion(self::PACKAGE_NAME) ?? 'unknown'
+            : 'unknown';
+    }
+
     public function register(): void
     {
         $this->mergeConfigFrom(
@@ -165,7 +181,7 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
     private function registerAboutCommand(): void
     {
         AboutCommand::add('Delegation', static fn (): array => [
-            'Version' => '1.0.0',
+            'Version' => self::packageVersion(),
             'Audit Driver' => (string) config('permission-delegation.audit.driver', 'database'),
             'Audit Enabled' => config('permission-delegation.audit.enabled', true) ? '<fg=green;options=bold>YES</>' : '<fg=red;options=bold>NO</>',
             'Cache Enabled' => config('permission-delegation.cache.enabled', true) ? '<fg=green;options=bold>YES</>' : '<fg=red;options=bold>NO</>',
@@ -313,6 +329,8 @@ final class DelegationServiceProvider extends ServiceProvider implements Deferra
                 return new CachedDelegationService(
                     inner: $service,
                     cache: $app->make('cache.store'),
+                    roleRepository: $app->make(RoleRepositoryInterface::class),
+                    permissionRepository: $app->make(PermissionRepositoryInterface::class),
                     ttl: (int) config('permission-delegation.cache.ttl', 3600),
                     prefix: (string) config('permission-delegation.cache.prefix', 'delegation_'),
                     guardName: (string) config('permission-delegation.guard', 'web'),

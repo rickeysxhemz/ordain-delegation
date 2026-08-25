@@ -10,6 +10,8 @@ use Ordain\Delegation\Contracts\CacheInvalidatorInterface;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
+use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 
@@ -18,6 +20,11 @@ use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
  *
  * Wraps the delegation service to cache frequently accessed data
  * and reduce database queries.
+ *
+ * Only scalars and arrays are stored in the cache (identifiers and
+ * scope data, never objects) so cached values remain readable under
+ * Laravel 13's `cache.serializable_classes` hardening, which blocks
+ * unserializing arbitrary PHP objects by default.
  */
 final readonly class CachedDelegationService implements CacheInvalidatorInterface, DelegationServiceInterface
 {
@@ -36,6 +43,8 @@ final readonly class CachedDelegationService implements CacheInvalidatorInterfac
     public function __construct(
         private DelegationServiceInterface $inner,
         private CacheRepository $cache,
+        private RoleRepositoryInterface $roleRepository,
+        private PermissionRepositoryInterface $permissionRepository,
         private int $ttl = 3600,
         private string $prefix = 'delegation_',
         private string $guardName = '',
@@ -128,7 +137,22 @@ final readonly class CachedDelegationService implements CacheInvalidatorInterfac
     {
         $key = $this->cacheKey('assignable_roles', $delegator);
 
-        return $this->cache->remember($key, $this->ttl, fn (): Collection => $this->inner->getAssignableRoles($delegator));
+        $cached = $this->cache->get($key);
+
+        if (is_array($cached)) {
+            /** @var array<int|string> $cached */
+            return $this->roleRepository->findByIds($cached);
+        }
+
+        $roles = $this->inner->getAssignableRoles($delegator);
+
+        $this->cache->put(
+            $key,
+            $roles->map(static fn (RoleInterface $role): int|string => $role->getRoleIdentifier())->all(),
+            $this->ttl,
+        );
+
+        return $roles;
     }
 
     /**
@@ -138,7 +162,22 @@ final readonly class CachedDelegationService implements CacheInvalidatorInterfac
     {
         $key = $this->cacheKey('assignable_perms', $delegator);
 
-        return $this->cache->remember($key, $this->ttl, fn (): Collection => $this->inner->getAssignablePermissions($delegator));
+        $cached = $this->cache->get($key);
+
+        if (is_array($cached)) {
+            /** @var array<int|string> $cached */
+            return $this->permissionRepository->findByIds($cached);
+        }
+
+        $permissions = $this->inner->getAssignablePermissions($delegator);
+
+        $this->cache->put(
+            $key,
+            $permissions->map(static fn (PermissionInterface $permission): int|string => $permission->getPermissionIdentifier())->all(),
+            $this->ttl,
+        );
+
+        return $permissions;
     }
 
     public function setDelegationScope(
@@ -154,7 +193,18 @@ final readonly class CachedDelegationService implements CacheInvalidatorInterfac
     {
         $key = $this->cacheKey('scope', $user);
 
-        return $this->cache->remember($key, $this->ttl, fn (): DelegationScope => $this->inner->getDelegationScope($user));
+        $cached = $this->cache->get($key);
+
+        if (is_array($cached)) {
+            /** @var array<string, mixed> $cached */
+            return DelegationScope::fromArray($cached);
+        }
+
+        $scope = $this->inner->getDelegationScope($user);
+
+        $this->cache->put($key, $scope->toArray(), $this->ttl);
+
+        return $scope;
     }
 
     public function delegateRole(

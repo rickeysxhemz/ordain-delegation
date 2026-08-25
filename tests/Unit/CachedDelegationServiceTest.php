@@ -10,6 +10,8 @@ use Mockery;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
+use Ordain\Delegation\Contracts\Repositories\PermissionRepositoryInterface;
+use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Contracts\RoleInterface;
 use Ordain\Delegation\Domain\ValueObjects\DelegationScope;
 use Ordain\Delegation\Services\CachedDelegationService;
@@ -17,6 +19,8 @@ use Ordain\Delegation\Services\CachedDelegationService;
 beforeEach(function (): void {
     $this->inner = Mockery::mock(DelegationServiceInterface::class);
     $this->cache = Mockery::mock(CacheRepository::class);
+    $this->roleRepository = Mockery::mock(RoleRepositoryInterface::class);
+    $this->permissionRepository = Mockery::mock(PermissionRepositoryInterface::class);
     $this->delegator = Mockery::mock(DelegatableUserInterface::class);
     $this->target = Mockery::mock(DelegatableUserInterface::class);
     $this->role = Mockery::mock(RoleInterface::class);
@@ -30,6 +34,8 @@ beforeEach(function (): void {
     $this->service = new CachedDelegationService(
         inner: $this->inner,
         cache: $this->cache,
+        roleRepository: $this->roleRepository,
+        permissionRepository: $this->permissionRepository,
         ttl: 3600,
         prefix: 'delegation_',
         guardName: 'web',
@@ -147,11 +153,40 @@ describe('CachedDelegationService', function (): void {
         expect($result)->toBe(10);
     });
 
-    it('caches getAssignableRoles', function (): void {
-        $roles = new Collection;
-        $this->cache->shouldReceive('remember')
+    it('caches assignable role identifiers on cache miss', function (): void {
+        $roles = new Collection([$this->role]);
+
+        $this->cache->shouldReceive('get')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'aroles_1'))
+            ->withArgs(fn ($key) => str_contains($key, 'aroles_1'))
+            ->andReturnNull();
+
+        $this->inner->shouldReceive('getAssignableRoles')
+            ->once()
+            ->with($this->delegator)
+            ->andReturn($roles);
+
+        $this->cache->shouldReceive('put')
+            ->once()
+            ->withArgs(fn ($key, $value, $ttl) => str_contains($key, 'aroles_1') && $value === [10] && $ttl === 3600)
+            ->andReturn(true);
+
+        $result = $this->service->getAssignableRoles($this->delegator);
+
+        expect($result)->toBe($roles);
+    });
+
+    it('rehydrates assignable roles from cached identifiers', function (): void {
+        $roles = new Collection([$this->role]);
+
+        $this->cache->shouldReceive('get')
+            ->once()
+            ->withArgs(fn ($key) => str_contains($key, 'aroles_1'))
+            ->andReturn([10]);
+
+        $this->roleRepository->shouldReceive('findByIds')
+            ->once()
+            ->with([10])
             ->andReturn($roles);
 
         $result = $this->service->getAssignableRoles($this->delegator);
@@ -159,11 +194,40 @@ describe('CachedDelegationService', function (): void {
         expect($result)->toBe($roles);
     });
 
-    it('caches getAssignablePermissions', function (): void {
-        $permissions = new Collection;
-        $this->cache->shouldReceive('remember')
+    it('caches assignable permission identifiers on cache miss', function (): void {
+        $permissions = new Collection([$this->permission]);
+
+        $this->cache->shouldReceive('get')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'aperms_1'))
+            ->withArgs(fn ($key) => str_contains($key, 'aperms_1'))
+            ->andReturnNull();
+
+        $this->inner->shouldReceive('getAssignablePermissions')
+            ->once()
+            ->with($this->delegator)
+            ->andReturn($permissions);
+
+        $this->cache->shouldReceive('put')
+            ->once()
+            ->withArgs(fn ($key, $value, $ttl) => str_contains($key, 'aperms_1') && $value === [20] && $ttl === 3600)
+            ->andReturn(true);
+
+        $result = $this->service->getAssignablePermissions($this->delegator);
+
+        expect($result)->toBe($permissions);
+    });
+
+    it('rehydrates assignable permissions from cached identifiers', function (): void {
+        $permissions = new Collection([$this->permission]);
+
+        $this->cache->shouldReceive('get')
+            ->once()
+            ->withArgs(fn ($key) => str_contains($key, 'aperms_1'))
+            ->andReturn([20]);
+
+        $this->permissionRepository->shouldReceive('findByIds')
+            ->once()
+            ->with([20])
             ->andReturn($permissions);
 
         $result = $this->service->getAssignablePermissions($this->delegator);
@@ -171,16 +235,40 @@ describe('CachedDelegationService', function (): void {
         expect($result)->toBe($permissions);
     });
 
-    it('caches getDelegationScope', function (): void {
-        $scope = DelegationScope::none();
-        $this->cache->shouldReceive('remember')
+    it('caches delegation scope as array on cache miss', function (): void {
+        $scope = DelegationScope::unlimited([10], [20]);
+
+        $this->cache->shouldReceive('get')
             ->once()
-            ->withArgs(fn ($key, $ttl, $callback) => str_contains($key, 'scope'))
+            ->withArgs(fn ($key) => str_contains($key, 'scope'))
+            ->andReturnNull();
+
+        $this->inner->shouldReceive('getDelegationScope')
+            ->once()
+            ->with($this->delegator)
             ->andReturn($scope);
+
+        $this->cache->shouldReceive('put')
+            ->once()
+            ->withArgs(fn ($key, $value, $ttl) => str_contains($key, 'scope') && $value === $scope->toArray() && $ttl === 3600)
+            ->andReturn(true);
 
         $result = $this->service->getDelegationScope($this->delegator);
 
         expect($result)->toBe($scope);
+    });
+
+    it('rehydrates delegation scope from cached array', function (): void {
+        $scope = DelegationScope::unlimited([10], [20]);
+
+        $this->cache->shouldReceive('get')
+            ->once()
+            ->withArgs(fn ($key) => str_contains($key, 'scope'))
+            ->andReturn($scope->toArray());
+
+        $result = $this->service->getDelegationScope($this->delegator);
+
+        expect($result->equals($scope))->toBeTrue();
     });
 
     it('invalidates cache on setDelegationScope', function (): void {
