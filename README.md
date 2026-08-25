@@ -33,9 +33,9 @@ Without delegation control, a team lead could assign admin roles, create unlimit
 
 ## Requirements
 
-- PHP 8.2+
-- Laravel 11.x or 12.x
-- [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^6.0
+- PHP 8.2+ (PHP 8.3+ for Laravel 13)
+- Laravel 11.x, 12.x, or 13.x
+- [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^6.0 (^6.25 for Laravel 13)
 
 ## Installation
 
@@ -175,8 +175,8 @@ php artisan delegation:show {user}
 # Assign role via CLI
 php artisan delegation:assign {delegator} {target} {role}
 
-# Clear delegation cache
-php artisan delegation:cache-reset {user?}
+# Clear delegation cache (pass a user ID, or --all for every user)
+php artisan delegation:cache-reset {user?} {--all}
 
 # Health check
 php artisan delegation:health

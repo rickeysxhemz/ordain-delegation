@@ -6,9 +6,9 @@ This guide covers installing and configuring the Permission Delegation package f
 
 | Requirement | Version |
 |-------------|---------|
-| PHP | 8.2, 8.3, or 8.4 |
-| Laravel | 11.x or 12.x |
-| spatie/laravel-permission | ^6.0 |
+| PHP | 8.2, 8.3, 8.4, or 8.5 (8.3+ required for Laravel 13) |
+| Laravel | 11.x, 12.x, or 13.x |
+| spatie/laravel-permission | ^6.0 (^6.25 for Laravel 13) |
 
 ## Install via Composer
 

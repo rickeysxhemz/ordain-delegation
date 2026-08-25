@@ -26,14 +26,21 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        php: [8.2, 8.3, 8.4]
-        laravel: ['11.*', '12.*']
+        php: [8.2, 8.3, 8.4, 8.5]
+        laravel: ['11.*', '12.*', '13.*']
         stability: [prefer-lowest, prefer-stable]
         exclude:
           - php: 8.2
             stability: prefer-lowest
           - php: 8.4
             laravel: '11.*'
+          - php: 8.5
+            laravel: '11.*'
+          - php: 8.5
+            stability: prefer-lowest
+          # Laravel 13 requires PHP 8.3+
+          - php: 8.2
+            laravel: '13.*'
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 

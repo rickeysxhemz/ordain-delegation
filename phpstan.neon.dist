@@ -25,6 +25,7 @@ parameters:
 
         - message: '#Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage#'
           path: tests/*
+          reportUnmatched: false
 
         # Pest expectation types
         - identifier: argument.templateType

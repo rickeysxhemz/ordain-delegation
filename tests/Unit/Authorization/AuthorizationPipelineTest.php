@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Pipeline\Pipeline;
-use Mockery;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\PermissionInterface;
 use Ordain\Delegation\Contracts\Repositories\DelegationRepositoryInterface;
