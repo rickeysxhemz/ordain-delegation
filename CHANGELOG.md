@@ -53,6 +53,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fails static analysis under larastan 3.10 / mockery 1.6.15 via `reportUnmatchedIgnoredErrors`
 - Removed no-op global-namespace `use` statements from Pest test files that emitted warnings on PHP 8.5
 
+## [1.1.2] - 2026-03-22
+
+### Added
+- Support for multiple root admin roles — `root_admin.role` accepts an array as well as a string
+- `guard` recorded on audit entries: a new `AuditContext::$guard` property, written to a new nullable
+  `guard` column on `delegation_audit_logs`
+
+### Changed
+- **BREAKING:** `RootAdminResolver::__construct()` takes `array $roleIdentifiers` in place of
+  `?string $roleIdentifier`. Container-resolved usage is unaffected; manual construction must pass an array.
+- **BREAKING:** `DelegationScope` rejects a `maxManageableUsers` below `1`. A quota of `0` previously
+  validated and now throws — use `null` for unlimited.
+- `delegation_audit_logs` gains a nullable `guard` column, so the migrations must be re-published and run
+  when upgrading
+- `CanDelegateMiddleware`, `CanAssignRoleMiddleware`, `CanManageUserMiddleware` and
+  `RateLimitDelegationMiddleware` resolve the user through the configured guard instead of the default one
+- `AuditContext::fromRequest()` accepts the guard as a second argument
+- `CachedDelegationService` defaults `$guardName` to `''` rather than `'web'`, so cache keys reflect the
+  guard that is actually configured
+- `BladeDirectives` is no longer `final` and its methods are `protected`, allowing the directives to be
+  extended
+
+### Fixed
+- Blade directives return `false` instead of surfacing a `Throwable` when evaluated outside a resolvable
+  auth context
+
+## [1.1.1] - 2026-03-22
+
+### Added
+- `root_admin.guard` configuration option (`DELEGATION_ROOT_ADMIN_GUARD`), passed through to the role
+  lookup so root admin detection can target a specific guard
+- `docs/customization.md` covering the package's extension points, plus expanded `docs/api-reference.md`,
+  `docs/blade-and-routes.md`, `docs/configuration.md`, `docs/events.md` and `docs/middleware.md`
+- Changelog entry for 1.1.0, which was tagged without one
+
+### Changed
+- `RootAdminResolver::__construct()` accepts an optional `?string $guard`
+
+### Removed
+- Infection mutation testing — the `mutation-testing.yml` workflow and the
+  `infection/extension-installer` plugin allowance in `composer.json`
+
 ## [1.1.0] - 2026-03-22
 
 ### Added
