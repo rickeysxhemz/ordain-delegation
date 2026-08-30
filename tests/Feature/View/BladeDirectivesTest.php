@@ -5,18 +5,33 @@ declare(strict_types=1);
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
-use Ordain\Delegation\Contracts\Repositories\RoleRepositoryInterface;
 use Ordain\Delegation\Tests\Fixtures\User;
 use Ordain\Delegation\View\BladeDirectives;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
+/**
+ * The directives are registered as Blade conditions, so `Blade::check()`
+ * invokes the same closure a compiled template calls at runtime. Assertions go
+ * through that closure — or through a rendered template — rather than through
+ * the services behind it, so a directive that is wired up incorrectly fails
+ * here instead of passing on the strength of the service being correct.
+ */
 beforeEach(function (): void {
     app(BladeDirectives::class)->register();
 });
 
-describe('BladeDirectives', function (): void {
+function manager(string $email): User
+{
+    return User::create([
+        'name' => 'Manager',
+        'email' => $email,
+        'can_manage_users' => true,
+    ]);
+}
+
+describe('BladeDirectives registration', function (): void {
     it('registers canDelegate directive', function (): void {
         $directives = Blade::getCustomDirectives();
 
@@ -40,118 +55,183 @@ describe('BladeDirectives', function (): void {
         expect($directives)->toHaveKey('elsecanManageUser');
         expect($directives)->toHaveKey('endcanManageUser');
     });
+});
 
-    it('canDelegate returns false when not authenticated', function (): void {
-        $blade = '@canDelegate Show @endcanDelegate';
-        $compiled = Blade::compileString($blade);
-
-        // The condition should evaluate to false when not authenticated
-        expect($compiled)->toContain('if');
+describe('@canDelegate', function (): void {
+    it('is false for a guest', function (): void {
+        expect(Blade::check('canDelegate'))->toBeFalse();
     });
 
-    it('canDelegate returns true for user who can create users', function (): void {
-        $user = User::create([
-            'name' => 'Manager',
-            'email' => 'manager@example.com',
-            'can_manage_users' => true,
-        ]);
+    it('is true for a user who can create users', function (): void {
+        $this->actingAs(manager('manager@example.com'));
 
-        $this->actingAs($user);
-
-        // Use evaluation instead of compilation for runtime behavior
-        $result = app(DelegationServiceInterface::class)->canCreateUsers($user);
-
-        expect($result)->toBeTrue();
+        expect(Blade::check('canDelegate'))->toBeTrue();
     });
 
-    it('canDelegate returns false for user who cannot create users', function (): void {
-        $user = User::create([
+    it('is false for a user who cannot create users', function (): void {
+        $this->actingAs(User::create([
             'name' => 'Regular',
             'email' => 'regular@example.com',
             'can_manage_users' => false,
-        ]);
+        ]));
 
-        $this->actingAs($user);
-
-        $result = app(DelegationServiceInterface::class)->canCreateUsers($user);
-
-        expect($result)->toBeFalse();
+        expect(Blade::check('canDelegate'))->toBeFalse();
     });
 
-    it('canAssignRole returns false for non-existent role', function (): void {
-        $user = User::create([
-            'name' => 'Manager',
-            'email' => 'manager@example.com',
-            'can_manage_users' => true,
-        ]);
+    it('renders its body only when the condition passes', function (): void {
+        $template = '@canDelegate CREATE @endcanDelegate';
 
-        $this->actingAs($user);
+        $this->actingAs(manager('manager2@example.com'));
+        expect(trim(Blade::render($template)))->toBe('CREATE');
 
-        $roleRepo = app(RoleRepositoryInterface::class);
-        $role = $roleRepo->findByName('nonexistent');
-
-        expect($role)->toBeNull();
+        $this->actingAs(User::create([
+            'name' => 'Regular',
+            'email' => 'regular2@example.com',
+            'can_manage_users' => false,
+        ]));
+        expect(trim(Blade::render($template)))->toBe('');
     });
 
-    it('canAssignRole returns true when user can assign role', function (): void {
-        $user = User::create([
-            'name' => 'Manager',
-            'email' => 'manager@example.com',
-            'can_manage_users' => true,
-        ]);
+    it('renders the else branch when the condition fails', function (): void {
+        // Blade::if() compiles @else<name> to `elseif (check(<name>))`, re-testing
+        // the same condition — so the plain @else is what pairs with a directive
+        // that takes no expression.
+        $template = '@canDelegate YES @else NO @endcanDelegate';
 
+        $this->actingAs(User::create([
+            'name' => 'Regular',
+            'email' => 'regular3@example.com',
+            'can_manage_users' => false,
+        ]));
+        expect(trim(Blade::render($template)))->toBe('NO');
+
+        $this->actingAs(manager('manager10@example.com'));
+        expect(trim(Blade::render($template)))->toBe('YES');
+    });
+});
+
+describe('@canAssignRole', function (): void {
+    it('is false for a guest', function (): void {
+        Role::create(['name' => 'editor', 'guard_name' => 'web']);
+
+        expect(Blade::check('canAssignRole', 'editor'))->toBeFalse();
+    });
+
+    it('is true when the role is in the delegator scope', function (): void {
+        $user = manager('manager3@example.com');
         $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
         $user->assignableRoles()->attach($role->id);
 
         $this->actingAs($user);
 
-        $roleRepo = app(RoleRepositoryInterface::class);
-        $foundRole = $roleRepo->findByName('editor');
-
-        $result = app(DelegationServiceInterface::class)
-            ->canAssignRole($user, $foundRole);
-
-        expect($result)->toBeTrue();
+        expect(Blade::check('canAssignRole', 'editor'))->toBeTrue();
     });
 
-    it('canManageUser returns true when user can manage target', function (): void {
-        $manager = User::create([
-            'name' => 'Manager',
-            'email' => 'manager@example.com',
-            'can_manage_users' => true,
-        ]);
+    it('is false when the role is outside the delegator scope', function (): void {
+        $user = manager('manager4@example.com');
+        Role::create(['name' => 'admin', 'guard_name' => 'web']);
 
+        $this->actingAs($user);
+
+        expect(Blade::check('canAssignRole', 'admin'))->toBeFalse();
+    });
+
+    it('is false for a role that does not exist', function (): void {
+        $this->actingAs(manager('manager5@example.com'));
+
+        expect(Blade::check('canAssignRole', 'nonexistent'))->toBeFalse();
+    });
+
+    it('renders its body only when the condition passes', function (): void {
+        $user = manager('manager6@example.com');
+        $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
+        Role::create(['name' => 'admin', 'guard_name' => 'web']);
+        $user->assignableRoles()->attach($role->id);
+
+        $this->actingAs($user);
+
+        expect(trim(Blade::render('@canAssignRole("editor") OK @endcanAssignRole')))->toBe('OK');
+        expect(trim(Blade::render('@canAssignRole("admin") OK @endcanAssignRole')))->toBe('');
+    });
+});
+
+describe('@canManageUser', function (): void {
+    it('is false for a guest', function (): void {
+        $target = User::create(['name' => 'Target', 'email' => 'target@example.com']);
+
+        expect(Blade::check('canManageUser', $target))->toBeFalse();
+    });
+
+    it('is true for a user the delegator created', function (): void {
+        $manager = manager('manager7@example.com');
         $target = User::create([
             'name' => 'Target',
-            'email' => 'target@example.com',
+            'email' => 'target2@example.com',
             'created_by_user_id' => $manager->id,
         ]);
 
         $this->actingAs($manager);
 
-        $result = app(DelegationServiceInterface::class)
-            ->canManageUser($manager, $target);
-
-        expect($result)->toBeTrue();
+        expect(Blade::check('canManageUser', $target))->toBeTrue();
     });
 
-    it('canManageUser returns false when user cannot manage target', function (): void {
-        $manager = User::create([
-            'name' => 'Manager',
-            'email' => 'manager@example.com',
-            'can_manage_users' => true,
-        ]);
-
-        $other = User::create([
-            'name' => 'Other',
-            'email' => 'other@example.com',
-        ]);
+    it('is false for a user the delegator did not create', function (): void {
+        $manager = manager('manager8@example.com');
+        $other = User::create(['name' => 'Other', 'email' => 'other@example.com']);
 
         $this->actingAs($manager);
 
-        $result = app(DelegationServiceInterface::class)
-            ->canManageUser($manager, $other);
+        expect(Blade::check('canManageUser', $other))->toBeFalse();
+    });
 
-        expect($result)->toBeFalse();
+    it('renders its body only when the condition passes', function (): void {
+        $manager = manager('manager9@example.com');
+        $owned = User::create([
+            'name' => 'Owned',
+            'email' => 'owned@example.com',
+            'created_by_user_id' => $manager->id,
+        ]);
+        $other = User::create(['name' => 'Other', 'email' => 'other2@example.com']);
+
+        $this->actingAs($manager);
+
+        expect(trim(Blade::render('@canManageUser($user) EDIT @endcanManageUser', ['user' => $owned])))->toBe('EDIT');
+        expect(trim(Blade::render('@canManageUser($user) EDIT @endcanManageUser', ['user' => $other])))->toBe('');
+    });
+});
+
+describe('BladeDirectives failure handling', function (): void {
+    it('is false rather than throwing when the auth guard cannot be resolved', function (): void {
+        $target = User::create(['name' => 'Target', 'email' => 'guarded@example.com']);
+        Role::create(['name' => 'editor', 'guard_name' => 'web']);
+
+        config()->set('permission-delegation.guard', 'nonexistent-guard');
+
+        expect(Blade::check('canDelegate'))->toBeFalse();
+        expect(Blade::check('canAssignRole', 'editor'))->toBeFalse();
+        expect(Blade::check('canManageUser', $target))->toBeFalse();
+    });
+
+    it('swallows a failure from the delegation service rather than breaking the view', function (): void {
+        $manager = manager('manager11@example.com');
+        $target = User::create([
+            'name' => 'Target',
+            'email' => 'target3@example.com',
+            'created_by_user_id' => $manager->id,
+        ]);
+        $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
+        $manager->assignableRoles()->attach($role->id);
+
+        $this->actingAs($manager);
+
+        $failing = Mockery::mock(DelegationServiceInterface::class);
+        $failing->shouldReceive('canCreateUsers')->andThrow(new RuntimeException('boom'));
+        $failing->shouldReceive('canAssignRole')->andThrow(new RuntimeException('boom'));
+        $failing->shouldReceive('canManageUser')->andThrow(new RuntimeException('boom'));
+        $this->app->instance(DelegationServiceInterface::class, $failing);
+
+        expect(Blade::check('canDelegate'))->toBeFalse();
+        expect(Blade::check('canAssignRole', 'editor'))->toBeFalse();
+        expect(Blade::check('canManageUser', $target))->toBeFalse();
     });
 });
