@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-31
+
 ### Added
 - Laravel 13.x support (`illuminate/*` constraints are now `^12.0|^13.0`)
 - `orchestra/testbench` `^11.0` for testing against Laravel 13
