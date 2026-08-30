@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\View;
 
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Blade;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
@@ -12,12 +13,18 @@ use Throwable;
 
 /**
  * Registers Blade directives for delegation permission checks.
+ *
+ * Directives are registered once, but the closures they install outlive the
+ * request that registered them. Under Octane that matters: the delegation
+ * service and role repository are scoped bindings, flushed at every request
+ * boundary, so closing over them at registration would pin the instances that
+ * happened to exist when the worker booted. The container is resolved from
+ * instead, on each evaluation.
  */
 readonly class BladeDirectives
 {
     public function __construct(
-        private DelegationServiceInterface $delegationService,
-        private RoleRepositoryInterface $roleRepository,
+        private Container $container,
     ) {}
 
     /**
@@ -44,6 +51,24 @@ readonly class BladeDirectives
         $this->registerCanManageUser();
     }
 
+    /**
+     * Resolve the delegation service for the current request.
+     */
+    protected function delegationService(): DelegationServiceInterface
+    {
+        /** @var DelegationServiceInterface */
+        return $this->container->make(DelegationServiceInterface::class);
+    }
+
+    /**
+     * Resolve the role repository for the current request.
+     */
+    protected function roleRepository(): RoleRepositoryInterface
+    {
+        /** @var RoleRepositoryInterface */
+        return $this->container->make(RoleRepositoryInterface::class);
+    }
+
     protected function registerCanDelegate(): void
     {
         Blade::if('canDelegate', function (): bool {
@@ -54,7 +79,7 @@ readonly class BladeDirectives
                     return false;
                 }
 
-                return $this->delegationService->canCreateUsers($user);
+                return $this->delegationService()->canCreateUsers($user);
             } catch (Throwable) {
                 return false;
             }
@@ -71,13 +96,13 @@ readonly class BladeDirectives
                     return false;
                 }
 
-                $role = $this->roleRepository->findByName($roleName);
+                $role = $this->roleRepository()->findByName($roleName);
 
                 if ($role === null) {
                     return false;
                 }
 
-                return $this->delegationService->canAssignRole($user, $role);
+                return $this->delegationService()->canAssignRole($user, $role);
             } catch (Throwable) {
                 return false;
             }
@@ -94,7 +119,7 @@ readonly class BladeDirectives
                     return false;
                 }
 
-                return $this->delegationService->canManageUser($user, $targetUser);
+                return $this->delegationService()->canManageUser($user, $targetUser);
             } catch (Throwable) {
                 return false;
             }
