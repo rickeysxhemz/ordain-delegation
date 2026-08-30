@@ -25,10 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cache.serializable_classes` hardening, which blocks unserializing arbitrary PHP objects by default.
 - Cache entries written by earlier versions are ignored rather than trusted; the affected key is recomputed and
   rewritten in the new format on first read, so no cache flush is required when upgrading.
-- **BREAKING:** `BladeDirectives::__construct()` takes `Illuminate\Contracts\Container\Container` in place of
-  `DelegationServiceInterface` and `RoleRepositoryInterface`, so the directive closures can resolve those
-  services per evaluation. Container-resolved usage — which is how both service providers register it — is
-  unaffected.
+- **BREAKING:** `BladeDirectives::__construct()` no longer takes `DelegationServiceInterface` and
+  `RoleRepositoryInterface`; both are resolved per evaluation through the protected `delegationService()`
+  and `roleRepository()` methods, which subclasses may override. Container-resolved usage — which is how
+  both service providers register it — is unaffected.
 
 ### Removed
 - **BREAKING:** Laravel 11.x support. `illuminate/*` is now `^12.0|^13.0` and `orchestra/testbench` is
@@ -57,11 +57,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from Composer's runtime metadata via `Composer\InstalledVersions`.
 - Blade directives served results from a stale delegation service under Octane. `Blade::if()` closures are
   registered once per worker and closed over the `DelegationServiceInterface` and `RoleRepositoryInterface`
-  injected at boot — but both are scoped bindings that Octane flushes at every request boundary, so from the
-  second request onward the directives evaluated against the instances belonging to worker boot. They now
-  resolve from the container on each evaluation. The authenticated user was already resolved per evaluation,
-  so this did not leak one user's permissions to another; every other binding in the package was already
-  `scoped` and is unaffected.
+  injected at boot. Both are scoped bindings that Octane flushes at every request boundary, and Octane serves
+  each request from a *clone* of the booted application — so the directives evaluated against services
+  belonging to worker boot rather than to the request. They now resolve through `app()` on each evaluation,
+  which reads the container Octane makes current per request; caching a container reference would have kept
+  the base application and reintroduced the same defect.
+
+  The authenticated user was already resolved per evaluation, so this did not leak one user's permissions to
+  another. Every other binding in the package is `scoped`, and Octane's `FlushTemporaryContainerInstances`
+  listener clears those at `RequestReceived`, so the rest of the package was already correct — including the
+  audit context, which is rebuilt per request.
 - Stale `phpstan.neon.dist` ignore pattern for `Mockery\ExpectationInterface|Mockery\HigherOrderMessage` no longer
   fails static analysis under larastan 3.10 / mockery 1.6.15 via `reportUnmatchedIgnoredErrors`
 - Removed no-op global-namespace `use` statements from Pest test files that emitted warnings on PHP 8.5

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Ordain\Delegation\View;
 
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Blade;
 use Ordain\Delegation\Contracts\DelegatableUserInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
@@ -15,18 +14,15 @@ use Throwable;
  * Registers Blade directives for delegation permission checks.
  *
  * Directives are registered once, but the closures they install outlive the
- * request that registered them. Under Octane that matters: the delegation
- * service and role repository are scoped bindings, flushed at every request
- * boundary, so closing over them at registration would pin the instances that
- * happened to exist when the worker booted. The container is resolved from
- * instead, on each evaluation.
+ * request that registered them. Under Octane that matters twice over: the
+ * delegation service and role repository are scoped bindings flushed at every
+ * request boundary, and Octane serves each request from a *clone* of the booted
+ * application, so a container captured at registration stays pointed at the base
+ * app forever. Both services are therefore resolved through the `app()` helper on
+ * each evaluation, which reads the container Octane makes current per request.
  */
 readonly class BladeDirectives
 {
-    public function __construct(
-        private Container $container,
-    ) {}
-
     /**
      * Resolve the authenticated user using the configured guard.
      */
@@ -56,8 +52,7 @@ readonly class BladeDirectives
      */
     protected function delegationService(): DelegationServiceInterface
     {
-        /** @var DelegationServiceInterface */
-        return $this->container->make(DelegationServiceInterface::class);
+        return app(DelegationServiceInterface::class);
     }
 
     /**
@@ -65,8 +60,7 @@ readonly class BladeDirectives
      */
     protected function roleRepository(): RoleRepositoryInterface
     {
-        /** @var RoleRepositoryInterface */
-        return $this->container->make(RoleRepositoryInterface::class);
+        return app(RoleRepositoryInterface::class);
     }
 
     protected function registerCanDelegate(): void

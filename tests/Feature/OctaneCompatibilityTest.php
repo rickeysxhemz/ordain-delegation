@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Container\Container;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Ordain\Delegation\Adapters\SpatieRoleAdapter;
 use Ordain\Delegation\Contracts\DelegationAuditInterface;
 use Ordain\Delegation\Contracts\DelegationServiceInterface;
@@ -36,6 +38,36 @@ function simulateOctaneRequest(string $ipAddress): void
 function simulateOctaneRequestBoundary(): void
 {
     app()->forgetScopedInstances();
+}
+
+/**
+ * Run a callback against a clone of the application, the way Octane serves a
+ * request: Worker::handle() clones the booted app into a sandbox and hands it
+ * to CurrentApplication::set(), which rebinds 'app', points
+ * Container::getInstance() at the sandbox and re-aims the facades at it.
+ *
+ * Anything that captured a container at boot keeps resolving from the base
+ * application, whose scoped instances Octane never flushes — only the sandbox
+ * is flushed and discarded.
+ */
+function withOctaneSandbox(Closure $handler): void
+{
+    $base = app();
+    $sandbox = clone $base;
+
+    $sandbox->instance('app', $sandbox);
+    $sandbox->instance(Container::class, $sandbox);
+    Container::setInstance($sandbox);
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($sandbox);
+
+    try {
+        $handler($sandbox);
+    } finally {
+        Container::setInstance($base);
+        Facade::clearResolvedInstances();
+        Facade::setFacadeApplication($base);
+    }
 }
 
 describe('Octane compatibility', function (): void {
@@ -90,6 +122,31 @@ describe('Octane compatibility', function (): void {
         expect(Blade::check('canAssignRole', 'editor'))->toBeFalse(
             'the directive is still holding the services captured when the worker booted',
         );
+    });
+
+    it('evaluates directives against the request sandbox, not the container captured at boot', function (): void {
+        // Worker boot, on the base application.
+        app(BladeDirectives::class)->register();
+
+        $user = User::create([
+            'name' => 'Manager',
+            'email' => 'sandbox@example.com',
+            'can_manage_users' => true,
+        ]);
+
+        $this->actingAs($user);
+
+        expect(Blade::check('canDelegate'))->toBeTrue();
+
+        withOctaneSandbox(function ($sandbox) {
+            $replacement = Mockery::mock(DelegationServiceInterface::class);
+            $replacement->shouldReceive('canCreateUsers')->andReturnFalse();
+            $sandbox->instance(DelegationServiceInterface::class, $replacement);
+
+            expect(Blade::check('canDelegate'))->toBeFalse(
+                'the directive resolved from the container captured at boot rather than the request sandbox',
+            );
+        });
     });
 
     it('rebuilds the audit context per request instead of freezing the first one', function (): void {
